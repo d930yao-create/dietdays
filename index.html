@@ -492,23 +492,16 @@
    AI 穩定版設定
 ========================================== */
 
-const GEMINI_API_KEY = "AIzaSyCuIYHONCU9zulqEtKtRogKUHLA2k7E6do"; // ⚠️ 之後我會教你怎麼藏
-const GEMINI_MODEL = "gemini-pro";
 
 /* 共用呼叫 Gemini（最穩定寫法） */
 async function callGemini(promptText) {
-const res = await fetch(
-  `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-  {
+  const res = await fetch(API_URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: promptText }] }]
-    })
-  }
-);
+    body: new FormData().append("action", "askGemini").append("prompt", promptText)
+  });
+  const data = await res.json();
+  return data.reply;
+}
 
     if (!res.ok) throw new Error("Gemini API 失敗");
 
