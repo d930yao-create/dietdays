@@ -354,29 +354,37 @@ async function askAiToEstimate() {
 
     document.getElementById('aiCalculatingOverlay').classList.remove('hidden');
 
-    const prompt = `請用台灣常見份量估算「${food}」的熱量，只回傳純數字。例如：350`;
-    
+    const prompt = `請用台灣常見份量估算「${food}」的熱量，只回傳一個純數字，不要任何說明、單位或標點。例如一碗白飯就是280`;
+
     try {
         const res = await fetch(API_URL, {
             method: "POST",
             body: new URLSearchParams({ action: 'askGemini', prompt: prompt })
         });
         const json = await res.json();
+        
         if (json.status === "success") {
-            const cal = parseInt(json.reply.replace(/[^0-9]/g, '')) || 0;
-            if (cal > 0) {
+            // 加強解析：去除所有非數字，然後取第一串數字
+            const match = json.reply.match(/\d+/);
+            const cal = match ? parseInt(match[0]) : 0;
+            
+            if (cal > 0 && cal < 3000) { // 合理範圍過濾
                 document.getElementById('calInput').value = cal;
                 document.getElementById('calInput').classList.add('bg-rose-100');
                 setTimeout(() => document.getElementById('calInput').classList.remove('bg-rose-100'), 800);
+            } else {
+                alert("AI 給的數字怪怪的，手動輸入吧～");
             }
+        } else {
+            alert("AI 回傳錯誤：" + (json.message || "未知"));
         }
     } catch (e) {
-        alert("AI 今天累了，手動輸入吧～");
+        console.error(e);
+        alert("連線失敗，請檢查 GAS 是否部署正確");
     } finally {
         document.getElementById('aiCalculatingOverlay').classList.add('hidden');
     }
 }
-
 // ==================== AI 營養師聊天 ====================
 async function askAiQuestion() {
     const input = document.getElementById('aiQuestionInput');
@@ -394,24 +402,31 @@ async function askAiQuestion() {
     const prompt = question 
         ? `你是溫柔又幽默的台灣營養師，使用者問：${question}\n今天已吃 ${total} 大卡，預算 ${budget}，剩 ${balance}。請用 2-3 句台灣口吻回答。`
         : `今天已吃 ${total}，預算 ${budget}，剩 ${balance}，給我一句鼓勵或吐槽的話（台灣腔）`;
-
-    try {
-        const res = await fetch(API_URL, {
-            method: "POST",
-            body: new URLSearchParams({ action: 'askGemini', prompt: prompt })
-        });
-        const json = await res.json();
-        if (json.status === "success") {
-            typeWriter(json.reply, content);
-        } else {
-            content.innerText = "我今天休假啦～";
-        }
-    } catch (e) {
-        content.innerText = "網路不穩，明天再問我吧";
+ 
+try {
+    const res = await fetch(API_URL, {
+        method: "POST",
+        body: new URLSearchParams({ action: 'askGemini', prompt: prompt })
+    });
+    const json = await res.json();
+    if (json.status === "success") {
+        // 加強解析：去除 Markdown 標記
+        let text = json.reply
+            .replace(/```json|```markdown|```/g, '')  // 去掉 ``` 包裝
+            .replace(/\*\*(.*?)\*\*/g, '$1')  // 去掉粗體 **
+            .replace(/__(.*?)__/g, '$1')  // 去掉粗體 __
+            .trim();
+        typeWriter(text, content);
+    } else {
+        content.innerText = `AI 回傳錯誤：${json.message || "未知問題"}`;
     }
-    input.value = "";
+} catch (e) {
+    console.error("AI 請求錯誤:", e);  // 方便你 debug
+    content.innerText = "網路不穩，明天再問我吧～";
 }
+input.value = "";  // 清空輸入框
 
+ 
 function typeWriter(text, el) {
     el.innerHTML = "";
     let i = 0;
