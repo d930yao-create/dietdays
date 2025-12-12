@@ -180,430 +180,260 @@
         //  設定區：請填入你的 Google Apps Script 網址
         // ==========================================
         const API_URL = "https://script.google.com/macros/s/AKfycbzs4l4E4kxTxxBicnuHSgKo7zb1gMyC-hBnHKBoFW9Hpol1kOuQM8cc32C34fjXepiy/exec"; 
-        // 例如: https://script.google.com/macros/s/AKfycbx.../exec
 
-        // 1. 初始化設定
-        const defaultBudget = 1350; 
-        let records = []; 
+// 個人設定（會自動記住）
+let userSettings = JSON.parse(localStorage.getItem('myBodySettings')) || {
+    budget: 1350,
+    currentWeight: 77,
+    targetWeight:55
+};
 
-// ==========================================
-    //  個人設定功能 (新增)
-    // ==========================================
+// ==================== 基本渲染相關 ====================
+function updateSettingsUI() {
+    document.getElementById('budgetDisplay').innerText = userSettings.budget;
+    document.getElementById('displayCurrentWeight').innerText = userSettings.currentWeight;
+    document.getElementById('displayTargetWeight').innerText = userSettings.targetWeight;
+
+    const icon = document.getElementById('weightTrendIcon');
+    if (userSettings.currentWeight > userSettings.targetWeight) {
+        icon.className = "fa-solid fa-arrow-trend-down text-emerald-400";
+    } else if (userSettings.currentWeight < userSettings.targetWeight) {
+        icon.className = "fa-solid fa-arrow-trend-up text-rose-400";
+    } else {
+        icon.className = "fa-solid fa-check text-blue-400";
+    }
+    render(); // 重新算餘額
+}
+
+function render() {
+    const total = records.reduce((a, r) => a + r.cal, 0);
+    const balance = userSettings.budget - total; // 改用個人設定預算！
+
+    document.getElementById('totalIntake').innerText = total;
+    document.getElementById('balance').innerText = balance;
     
-    // 預設值變數 (改為 let，因為會被修改)
-    let userSettings = JSON.parse(localStorage.getItem('myBodySettings')) || {
-        budget: 1350,
-        currentWeight: 77,
-        targetWeight: 55
-    };
+    const percent = Math.min((total / userSettings.budget) * 100, 100);
+    const bar = document.getElementById('progressBar');
+    bar.style.width = percent + '%';
 
-    // 啟動時更新畫面上的設定值
-// 更新畫面上的設定值 (修正版)
-    function updateSettingsUI() {
-        // 1. 確保 userSettings 有值，如果沒有就用預設
-        if (!userSettings) {
-            userSettings = { budget: 1350, currentWeight: 77, targetWeight: 55 };
-        }
-
-        // 2. 強制更新「今日目標」的數字顯示 ✨ (關鍵在這裡)
-        const budgetEl = document.getElementById('budgetDisplay');
-        if (budgetEl) {
-            budgetEl.innerText = userSettings.budget; 
-            // 加個小動畫讓你知道它變了
-            budgetEl.classList.add('text-rose-600');
-            setTimeout(() => budgetEl.classList.remove('text-rose-600'), 500);
-        }
-
-        // 3. 更新體重顯示
-        document.getElementById('displayCurrentWeight').innerText = userSettings.currentWeight;
-        document.getElementById('displayTargetWeight').innerText = userSettings.targetWeight;
-        
-        // 4. 更新箭頭方向
-        const trendIcon = document.getElementById('weightTrendIcon');
-        if (userSettings.currentWeight > userSettings.targetWeight) {
-            trendIcon.className = "fa-solid fa-arrow-trend-down text-emerald-400"; 
-        } else if (userSettings.currentWeight < userSettings.targetWeight) {
-            trendIcon.className = "fa-solid fa-arrow-trend-up text-rose-400"; 
-        } else {
-            trendIcon.className = "fa-solid fa-check text-blue-400"; 
-        }
-
-        // 5. 重要！重新計算餘額 (Balance)
-        // 因為預算變了，剩餘額度也要重算
-        render(); 
+    if (balance < 0) {
+        document.getElementById('balance').classList.replace('text-emerald-500', 'text-red-500');
+        bar.classList.replace('bg-rose-400', 'bg-red-500');
+        document.getElementById('statusText').innerText = "預算超支了！明天再加油";
+    } else {
+        document.getElementById('balance').classList.replace('text-red-500', 'text-emerald-500');
+        bar.classList.replace('bg-red-500', 'bg-rose-400');
+        document.getElementById('statusText').innerText = "今天還可以吃得很開心！";
     }
 
-    // 打開設定視窗
-    function openSettings() {
-        document.getElementById('settingBudget').value = userSettings.budget;
-        document.getElementById('settingCurrentWeight').value = userSettings.currentWeight;
-        document.getElementById('settingTargetWeight').value = userSettings.targetWeight;
-        
-        const modal = document.getElementById('settingsModal');
-        modal.classList.remove('hidden');
-    }
-
-    // 關閉設定視窗
-    function closeSettings() {
-        document.getElementById('settingsModal').classList.add('hidden');
-    }
-
-    // 儲存設定
-    function saveSettings() {
-        const newBudget = parseInt(document.getElementById('settingBudget').value);
-        const newCurrent = parseFloat(document.getElementById('settingCurrentWeight').value);
-        const newTarget = parseFloat(document.getElementById('settingTargetWeight').value);
-
-        if (isNaN(newBudget) || isNaN(newCurrent) || isNaN(newTarget)) {
-            alert("請輸入正確的數字喔！");
-            return;
-        }
-
-        userSettings = {
-            budget: newBudget,
-            currentWeight: newCurrent,
-            targetWeight: newTarget
-        };
-
-        // 存入 localStorage
-        localStorage.setItem('myBodySettings', JSON.stringify(userSettings));
-        
-        closeSettings();
-        updateSettingsUI();
-        
-        alert("設定已更新！一起加油！💪");
-    }
-
-    // ==========================================
-    //  請記得修改原本 render() 裡的變數
-    // ==========================================
-        
-        // 預設資料庫 (當雲端還沒抓到時墊檔用)
-        const defaultDatabase = [
-            { name: "白飯 (一碗)", cal: 280 },
-            { name: "水煮蛋", cal: 75 },
-            { name: "拿鐵 (中杯)", cal: 120 }
-        ];
-        let foodDatabase = defaultDatabase;
-
-        // 設定日期
-        const todayDateStr = new Date().toLocaleDateString();
-        document.getElementById('currentDate').innerText = todayDateStr;
-
-        // --- 核心功能：讀取雲端資料 ---
-        async function fetchData() {
-            showLoading(true);
-            try {
-                // 呼叫 API 取得 getData
-                const response = await fetch(`${API_URL}?action=getData`);
-                const data = await response.json();
-
-                if (data.status === 'success') {
-                    // 1. 更新全域資料庫 (合併預設與雲端的新食物)
-                    foodDatabase = [...defaultDatabase, ...data.foodDB];
-                    // 去除重複名稱 (簡單濾除)
-                    foodDatabase = foodDatabase.filter((v,i,a)=>a.findIndex(t=>(t.name===v.name))===i);
-
-                    // 2. 過濾出「今天」的紀錄
-                    // 注意：Google Sheet 回傳的 date 格式可能會因語系不同，這裡做簡單字串比對
-                    records = data.records.filter(r => r.date === todayDateStr);
-                    
-                    render();
-                }
-            } catch (error) {
-                console.error("讀取失敗:", error);
-                alert("連線失敗，請檢查網路或網址設定");
-            } finally {
-                showLoading(false);
-            }
-        }
-
-        // --- 核心功能：新增紀錄 (寫入雲端) ---
-        function addRecord() {
-            const nameInput = document.getElementById('foodInput');
-            const calInput = document.getElementById('calInput');
-            const name = nameInput.value.trim();
-            const cal = parseInt(calInput.value);
-
-            if (!name || isNaN(cal)) {
-                alert("請輸入食物名稱與熱量喔！");
-                return;
-            }
-
-            const id = Date.now(); // 產生唯一 ID
-            const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-
-            // 1. 先在畫面呈現 (讓使用者感覺很快)
-            const newRecord = { id, name, cal, time, date: todayDateStr };
-            records.unshift(newRecord);
-            
-            // 清空輸入
-            nameInput.value = '';
-            calInput.value = '';
-            document.getElementById('suggestions').classList.add('hidden');
-            render();
-
-            // 2. 背景偷偷送出資料給 Google Sheet
-            const formData = new FormData();
-            formData.append('action', 'addRecord');
-            formData.append('id', id);
-            formData.append('name', name);
-            formData.append('cal', cal);
-            formData.append('time', time);
-
-            // 檢查是否為新食物，順便學習
-            const exists = foodDatabase.some(f => f.name === name);
-            if (!exists) {
-                foodDatabase.push({ name: name, cal: cal });
-                // 告訴後端要學習新食物
-                const foodData = new FormData();
-                foodData.append('action', 'addFood');
-                foodData.append('name', name);
-                foodData.append('cal', cal);
-                fetch(API_URL, { method: 'POST', body: foodData }); // 射後不理
-            }
-
-            // 正式送出紀錄
-            fetch(API_URL, { method: 'POST', body: formData })
-                .then(res => res.json())
-                .then(data => {
-                   console.log("雲端儲存成功"); 
-                })
-                .catch(err => {
-                    alert("雲端同步失敗，請稍後再試");
-                });
-        }
-
-        // --- 核心功能：刪除紀錄 ---
-        function deleteRecord(id) {
-            if(!confirm("確定要刪除這筆紀錄嗎？")) return;
-
-            // 1. 畫面先刪
-            records = records.filter(r => r.id != id); // 注意 id 型別可能是字串或數字
-            render();
-
-            // 2. 背景送出刪除請求
-            const formData = new FormData();
-            formData.append('action', 'deleteRecord');
-            formData.append('id', id);
-            
-            fetch(API_URL, { method: 'POST', body: formData });
-        }
-
-        // 搜尋食物功能 (維持不變)
-        function searchFood(keyword) {
-            const suggestionBox = document.getElementById('suggestions');
-            if (!keyword) {
-                suggestionBox.classList.add('hidden');
-                return;
-            }
-            const matches = foodDatabase.filter(food => food.name.includes(keyword)).slice(0, 10);
-            if (matches.length > 0) {
-                suggestionBox.innerHTML = matches.map(food => `
-                    <div class="p-3 hover:bg-rose-50 cursor-pointer flex justify-between items-center text-sm border-b border-gray-50 last:border-0" 
-                        onclick="selectFood('${food.name}', ${food.cal})">
-                        <span class="font-medium text-gray-700">${food.name}</span>
-                        <span class="text-gray-400 font-mono text-xs bg-gray-100 px-2 py-1 rounded-full">${food.cal} cal</span>
-                    </div>`).join('');
-                suggestionBox.classList.remove('hidden');
-            } else {
-                suggestionBox.innerHTML = `
-                    <div class="p-3 text-sm text-rose-500 italic">
-                        <i class="fa-solid fa-plus-circle mr-1"></i> 新食物！記帳後自動學習
-                    </div>`;
-                suggestionBox.classList.remove('hidden');
-            }
-        }
-        function selectFood(name, cal) {
-            document.getElementById('foodInput').value = name;
-            document.getElementById('calInput').value = cal;
-            document.getElementById('suggestions').classList.add('hidden');
-        }
-
-        // 渲染畫面
-        function render() {
-            const listEl = document.getElementById('recordList');
-            const totalEl = document.getElementById('totalIntake');
-            const balanceEl = document.getElementById('balance');
-            const progressEl = document.getElementById('progressBar');
-            const statusEl = document.getElementById('statusText');
-
-            const total = records.reduce((acc, cur) => acc + parseInt(cur.cal), 0);
-            const balance = defaultBudget - total;
-
-            totalEl.innerText = total;
-            balanceEl.innerText = balance;
-
-            let percentage = (total / defaultBudget) * 100;
-            if (percentage > 100) percentage = 100;
-            progressEl.style.width = percentage + "%";
-            
-            if (balance < 0) {
-                balanceEl.classList.replace('text-emerald-500', 'text-red-500');
-                balanceEl.innerText = `${balance}`;
-                progressEl.classList.replace('bg-rose-400', 'bg-red-500');
-                statusEl.innerText = "⚠️ 預算超支了！";
-            } else {
-                balanceEl.classList.replace('text-red-500', 'text-emerald-500');
-                progressEl.classList.replace('bg-red-500', 'bg-rose-400');
-                statusEl.innerText = "✨ 雲端同步中，狀態良好";
-            }
-
-            if (records.length === 0) {
-                listEl.innerHTML = `
-                    <div class="text-center py-10 text-gray-300 text-sm">
-                        <i class="fa-regular fa-clipboard mb-2 text-2xl"></i>
-                        <p>今天還沒開始記帳喔！</p>
-                    </div>`;
-            } else {
-                listEl.innerHTML = records.map(item => `
-                    <div class="glass-card p-4 flex justify-between items-center mb-3">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center text-rose-400 border border-rose-100">
-                                <i class="fa-solid fa-utensils text-sm"></i>
-                            </div>
-                            <div>
-                                <p class="text-gray-800 font-bold text-sm">${item.name}</p>
-                                <p class="text-xs text-gray-400">${item.time}</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <span class="font-bold text-gray-600 font-mono text-lg">-${item.cal}</span>
-                            <button onclick="deleteRecord('${item.id}')" class="w-8 h-8 rounded-full flex items-center justify-center text-gray-300 hover:text-red-400 hover:bg-red-50 transition">
-                                <i class="fa-solid fa-trash-can text-sm"></i>
-                            </button>
-                        </div>
+    // 明細列表
+    const list = document.getElementById('recordList');
+    if (records.length === 0) {
+        list.innerHTML = `<div class="text-center py-10 text-gray-300"><i class="fa-regular fa-clipboard text-4xl mb-3"></i><p>今天還沒開始記帳喔！</p></div>`;
+    } else {
+        list.innerHTML = records.map(r => `
+            <div class="glass-card p-4 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-rose-50 rounded-full flex-center text-rose-400">
+                        <i class="fa-solid fa-utensils"></i>
                     </div>
-                `).join('');
+                    <div>
+                        <p class="font-bold text-gray-800">${r.name}</p>
+                        <p class="text-xs text-gray-400">${r.time}</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="font-mono text-lg font-bold text-gray-600">-${r.cal}</span>
+                    <button onclick="deleteRecord('${r.id}')" class="w-8 h-8 hover:bg-red-50 rounded-full text-gray-400 hover:text-red-500">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+}
+
+// ==================== 核心功能 ====================
+let records = [];
+let foodDatabase = [];
+
+async function fetchData() {
+    showLoading(true);
+    try {
+        const res = await fetch(API_URL + "?action=getData");
+        const data = await res.json();
+        if (data.status === "success") {
+            foodDatabase = data.foodDB;
+            const today = new Date().toLocaleDateString('zh-TW');
+            records = data.records.filter(r => r.date === today);
+            render();
+        }
+    } catch (e) {
+        alert("連線失敗，請檢查網路或重新部署 GAS");
+    } finally {
+        showLoading(false);
+    }
+}
+
+function addRecord() {
+    const name = document.getElementById('foodInput').value.trim();
+    const cal = parseInt(document.getElementById('calInput').value);
+    if (!name || isNaN(cal)) return alert("請填完整喔～");
+
+    const id = Date.now();
+    const time = new Date().toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'});
+
+    records.unshift({id, name, cal, time, date: new Date().toLocaleDateString('zh-TW')});
+    render();
+
+    // 送去雲端
+    const fd = new FormData();
+    fd.append('action', 'addRecord');
+    fd.append('id', id);
+    fd.append('name', name);
+    fd.append('cal', cal);
+    fd.append('time', time);
+    fetch(API_URL, {method: "POST", body: fd});
+
+    // 如果是新食物就學習
+    if (!foodDatabase.some(f => f.name === name)) {
+        const fd2 = new FormData();
+        fd2.append('action', 'addFood');
+        fd2.append('name', name);
+        fd2.append('cal', cal);
+        fetch(API_URL, {method: "POST", body: fd2});
+    }
+
+    // 清空
+    document.getElementById('foodInput').value = '';
+    document.getElementById('calInput').value = '';
+    document.getElementById('suggestions').classList.add('hidden');
+}
+
+function deleteRecord(id) {
+    if (!confirm("確定刪除？")) return;
+    records = records.filter(r => r.id != id);
+    render();
+    const fd = new FormData();
+    fd.append('action', 'deleteRecord');
+    fd.append('id', id);
+    fetch(API_URL, {method: "POST", body: fd});
+}
+
+// ==================== 搜尋食物（這就是你缺的！）===================
+function searchFood(kw) {
+    const box = document.getElementById('suggestions');
+    if (!kw) return box.classList.add('hidden');
+
+    const hits = foodDatabase.filter(f => f.name.includes(kw)).slice(0, 8);
+    if (hits.length) {
+        box.innerHTML = hits.map(f => `
+            <div class="p-3 hover:bg-rose-50 cursor-pointer flex justify-between border-b last:border-0"
+                 onclick="selectFood('${f.name}', ${f.cal})">
+                <span class="font-medium">${f.name}</span>
+                <span class="text-xs bg-gray-100 px-2 py-1 rounded-full text-gray-500">${f.cal} cal</span>
+            </div>
+        `).join('');
+        box.classList.remove('hidden');
+    } else {
+        box.innerHTML = `<div class="p-3 text-rose-500 text-sm">新食物！記帳後自動記住</div>`;
+        box.classList.remove('hidden');
+    }
+}
+
+function selectFood(name, cal) {
+    document.getElementById('foodInput').value = name;
+    document.getElementById('calInput').value = cal;
+    document.getElementById('suggestions').classList.add('hidden');
+}
+
+// ==================== AI 熱量估算（現在走後端代理）===================
+async function askAiToEstimate() {
+    const food = document.getElementById('foodInput').value.trim();
+    if (!food) return alert("先說吃了什麼嘛～");
+
+    document.getElementById('aiCalculatingOverlay').classList.remove('hidden');
+
+    const prompt = `請用台灣常見份量估算「${food}」的熱量，只回傳純數字。例如：350`;
+    
+    try {
+        const res = await fetch(API_URL, {
+            method: "POST",
+            body: new URLSearchParams({ action: 'askGemini', prompt: prompt })
+        });
+        const json = await res.json();
+        if (json.status === "success") {
+            const cal = parseInt(json.reply.replace(/[^0-9]/g, '')) || 0;
+            if (cal > 0) {
+                document.getElementById('calInput').value = cal;
+                document.getElementById('calInput').classList.add('bg-rose-100');
+                setTimeout(() => document.getElementById('calInput').classList.remove('bg-rose-100'), 800);
             }
         }
-
-        function showLoading(show) {
-            const overlay = document.getElementById('loadingOverlay');
-            if(show) overlay.classList.remove('hidden');
-            else overlay.classList.add('hidden');
-        }
-        
-        // 網頁載入時自動抓資料
-        window.onload = fetchData;
-
-
-/* ==========================================
-   AI 穩定版設定
-========================================== */
-
-
-/* 共用呼叫 Gemini（最穩定寫法） */
-async function callGemini(promptText) {
-  const formData = new FormData();
-  formData.append('action', 'askGemini');
-  formData.append('prompt', promptText);
-
-  const res = await fetch(API_URL, {
-    method: "POST",
-    body: formData
-  });
-  
-  const data = await res.json();
-  if (data.status === "success") {
-    return data.reply;
-  } else {
-    throw new Error(data.message || "AI 請求失敗");
-  }
-}
-    return data.candidates[0].content.parts[0].text.trim();
-}
-
-/* ==========================================
-   功能 A：AI 熱量估算（穩定）
-========================================== */
-async function askAiToEstimate() {
-    const foodInput = document.getElementById('foodInput');
-    const calInput = document.getElementById('calInput');
-    const overlay = document.getElementById('aiCalculatingOverlay');
-
-    if (!foodInput.value.trim()) {
-        alert("先輸入吃了什麼啦 😅");
-        return;
-    }
-
-    overlay.classList.remove('hidden');
-
-    const prompt = `
-請估算以下食物的熱量，只回傳 JSON。
-食物：${foodInput.value}
-
-格式：
-{"cal": 數字}
-`;
-
-    try {
-        const reply = await callGemini(prompt);
-        const clean = reply.replace(/```json|```/g, "");
-        const result = JSON.parse(clean);
-
-        if (result.cal) {
-            calInput.value = result.cal;
-            calInput.classList.add("bg-rose-100");
-            setTimeout(() => calInput.classList.remove("bg-rose-100"), 600);
-        } else {
-            throw new Error("沒拿到熱量");
-        }
-
-    } catch (err) {
-        console.error(err);
-        alert("AI 今天有點累，幫你手動輸入一下 🙏");
+    } catch (e) {
+        alert("AI 今天累了，手動輸入吧～");
     } finally {
-        overlay.classList.add('hidden');
+        document.getElementById('aiCalculatingOverlay').classList.add('hidden');
     }
 }
 
-/* ==========================================
-   功能 B：AI 營養師聊天（穩定）
-========================================== */
+// ==================== AI 營養師聊天 ====================
 async function askAiQuestion() {
     const input = document.getElementById('aiQuestionInput');
     const box = document.getElementById('aiResponseBox');
     const content = document.getElementById('aiContent');
-
     const question = input.value.trim();
-    const total = document.getElementById('totalIntake').innerText;
-    const budget = document.getElementById('budgetDisplay').innerText;
-    const balance = document.getElementById('balance').innerText;
 
     box.classList.remove('hidden');
-    content.innerHTML = "🤖 思考中…";
+    content.innerHTML = "思考中…";
 
-    const prompt = question
-        ? `你是溫柔但務實的營養師。使用者問：「${question}」
-           今日已吃 ${total}，剩餘 ${balance}。請用 2～3 句回答。`
-        : `你是幽默教練，今天預算 ${budget}，剩 ${balance}，給一句短評。`;
+    const total = document.getElementById('totalIntake').innerText;
+    const budget = userSettings.budget;
+    const balance = document.getElementById('balance').innerText;
+
+    const prompt = question 
+        ? `你是溫柔又幽默的台灣營養師，使用者問：${question}\n今天已吃 ${total} 大卡，預算 ${budget}，剩 ${balance}。請用 2-3 句台灣口吻回答。`
+        : `今天已吃 ${total}，預算 ${budget}，剩 ${balance}，給我一句鼓勵或吐槽的話（台灣腔）`;
 
     try {
-        const reply = await callGemini(prompt);
-        typeWriter(reply, content);
-        input.value = "";
-    } catch (err) {
-        console.error(err);
-        content.innerText = "AI 今天請假 😴 明天再問我～";
+        const res = await fetch(API_URL, {
+            method: "POST",
+            body: new URLSearchParams({ action: 'askGemini', prompt: prompt })
+        });
+        const json = await res.json();
+        if (json.status === "success") {
+            typeWriter(json.reply, content);
+        } else {
+            content.innerText = "我今天休假啦～";
+        }
+    } catch (e) {
+        content.innerText = "網路不穩，明天再問我吧";
     }
+    input.value = "";
 }
 
-/* ==========================================
-   打字機效果（安全版）
-========================================== */
 function typeWriter(text, el) {
     el.innerHTML = "";
     let i = 0;
-    const timer = setInterval(() => {
+    const t = setInterval(() => {
         el.innerHTML += text[i] === "\n" ? "<br>" : text[i];
         i++;
-        if (i >= text.length) clearInterval(timer);
-    }, 20);
+        if (i >= text.length) clearInterval(t);
+    }, 30);
 }
 
+// ==================== 其他小工具 ====================
+function showLoading(yes) {
+    document.getElementById('loadingOverlay').classList[yes ? 'remove' : 'add']('hidden');
+}
 
-    </script>
+// 網頁載入完成
+window.onload = () => {
+    document.getElementById('currentDate').innerText = new Date().toLocaleDateString('zh-TW');
+    updateSettingsUI();
+    fetchData();
+};
+</script>
 <div id="settingsModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center hidden">
         <div class="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onclick="closeSettings()"></div>
         
