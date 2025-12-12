@@ -1,486 +1,450 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>雲端熱量記帳</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: #FDF8F6; }
-        .glass-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 24px;
-            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.08);
-            border: 1px solid rgba(255,255,255,0.6);
-        }
-        .progress-bar { transition: width 0.5s ease-in-out; }
-        
-        /* 載入中動畫 */
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #fb7185; /* Rose-400 */
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        /* 遮罩層 */
-        #loadingOverlay {
-            background: rgba(255,255,255,0.8);
-            backdrop-filter: blur(2px);
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BowBow Calorie Savings</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-color: #FDFBF7;
+  --card-bg: #FFFFFF;
+  --text-main: #6D5D50;
+  --text-light: #9C8C74;
+  --accent: #DBC8B6;
+  --accent-hover: #C9B29C;
+  --gold: #D4AF37; /* 達成目標的金 */
+  --input-bg: #F7F3EF;
+  --border-radius: 16px;
+}
+
+body {
+  margin: 0;
+  font-family: 'Noto Sans TC', sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  padding: 20px;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+h2 {
+  font-family: 'DM Serif Display', serif;
+  color: var(--text-main);
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 0.8fr; /* 第一欄稍微寬一點給儲蓄罐 */
+  gap: 24px;
+}
+
+@media (max-width: 900px) {
+  .container { grid-template-columns: 1fr; }
+}
+
+.card {
+  background: var(--card-bg);
+  border-radius: var(--border-radius);
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(109, 93, 80, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  display: flex;
+  flex-direction: column;
+}
+
+label {
+  font-size: 11px;
+  color: var(--text-light);
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+  display: block;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+input {
+  width: 100%;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  border: none;
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+input:disabled {
+    background: transparent;
+    border: 1px dashed #E0D6CC;
+    color: var(--text-light);
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.3s;
+  font-weight: 500;
+}
+button:hover { background: var(--accent-hover); }
+
+/* --- 儲蓄罐專區樣式 --- */
+.savings-box {
+    background: #FDF9F3;
+    border: 1px solid #EFE4D6;
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.goal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 10px;
+}
+.goal-title { font-size: 14px; font-weight: bold; color: var(--text-main); }
+.goal-nums { font-size: 12px; color: var(--text-light); }
+.goal-nums span { color: var(--accent-hover); font-weight: bold; font-size: 16px; }
+
+.big-progress-bg {
+    background: #EBE5DE;
+    height: 14px;
+    border-radius: 99px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+}
+.big-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #DBC8B6, #D4AF37); /* 漸層金 */
+    width: 0%;
+    transition: width 1s ease-out;
+}
+.progress-badge {
+    text-align: right;
+    font-size: 11px;
+    margin-top: 5px;
+    color: var(--text-light);
+}
+
+/* 每日計算區 */
+.daily-calc {
+    border-top: 1px dashed #E0D6CC;
+    padding-top: 15px;
+}
+.row-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.cal-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 14px;
+}
+.cal-row.total {
+    font-weight: bold;
+    color: var(--text-main);
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #eee;
+}
+
+/* 紀錄列表 */
+.record-list {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 400px;
+    padding-right: 5px;
+}
+.record-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px dashed #EBE5DE;
+    font-size: 13px;
+}
+.delete-btn { width: auto; background: none; color: #ccc; padding: 0 5px; }
+
+/* Loading */
+#loading {
+    position: fixed; top:0; left:0; width:100%; height:100%;
+    background: rgba(255,255,255,0.8);
+    display: none; justify-content: center; align-items: center; z-index: 99;
+    color: var(--accent);
+}
+</style>
 </head>
-<body class="text-gray-600">
+<body>
 
-    <div id="loadingOverlay" class="fixed inset-0 z-50 flex items-center justify-center hidden">
-        <div class="bg-white p-5 rounded-2xl shadow-xl flex flex-col items-center">
-            <div class="spinner mb-3"></div>
-            <p class="text-xs text-rose-400 font-bold tracking-widest">SYNCING...</p>
-        </div>
-    </div>
+<div id="loading">Syncing...</div>
 
-    <div class="max-w-md mx-auto min-h-screen relative pb-20">
+<div class="container">
+    
+    <div class="card">
+        <h2>Savings Bank</h2>
         
-<div class="px-6 pt-6 mb-6">
-            <div class="glass-card p-6 bg-white/90">
-                
-                <div class="flex justify-between items-center mb-4">
-                    <h1 class="text-xl font-bold text-gray-800 tracking-wide flex items-center">
-                        <span class="bg-rose-100 text-rose-400 w-8 h-8 flex items-center justify-center rounded-full mr-2 text-sm">
-                            <i class="fa-solid fa-utensils"></i>
-                        </span>
-                        熱量記帳本
-                    </h1>
-                    <div class="flex gap-2">
-                        <span class="text-xs font-mono text-gray-400 bg-gray-100 px-3 py-1 rounded-full flex items-center" id="currentDate"></span>
-                        <button onclick="openSettings()" class="w-8 h-8 rounded-full bg-gray-50 text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition flex items-center justify-center">
-                            <i class="fa-solid fa-gear"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="flex justify-between items-center px-2 mb-3 text-xs text-gray-500">
-                    <div>目前: <span id="displayCurrentWeight" class="font-bold text-gray-700">--</span> kg</div>
-                    <div class="flex items-center gap-1">
-                        目標: <span id="displayTargetWeight" class="font-bold text-gray-700">--</span> kg
-                        <i id="weightTrendIcon" class="fa-solid fa-arrow-right text-gray-300"></i>
-                    </div>
-                </div>
-
-                <div class="p-4 bg-gradient-to-br from-rose-50 to-orange-50 rounded-2xl border border-rose-100/50">
-                    <div class="flex justify-between text-sm mb-2">
-                        <span class="text-gray-500">今日目標 (TDEE)</span>
-                        <span class="font-bold text-gray-700 font-mono" id="budgetDisplay">1350</span>
-                    </div>
-                    <div class="flex justify-between items-end mb-3">
-                        <div>
-                            <span class="text-xs text-gray-400">已吃</span>
-                            <div class="text-2xl font-bold text-rose-500 font-mono" id="totalIntake">0</div>
-                        </div>
-                        <div class="text-right">
-                            <span class="text-xs text-gray-400">剩餘</span>
-                            <div class="text-xl font-bold text-emerald-500 font-mono" id="balance">1350</div>
-                        </div>
-                    </div>
-                    <div class="w-full bg-white rounded-full h-2 overflow-hidden shadow-sm">
-                        <div id="progressBar" class="progress-bar bg-rose-400 h-2 rounded-full" style="width: 0%"></div>
-                    </div>
-                    <p class="text-xs text-center mt-2 text-gray-400" id="statusText">今天還可以吃得很開心！</p>
-                </div>
+        <div class="row-split">
+            <div>
+                <label>初始體重 (Start)</label>
+                <input type="number" id="startWeight" value="77" onchange="calcTotalGoal()">
+            </div>
+            <div>
+                <label>目標體重 (Goal)</label>
+                <input type="number" id="targetWeight" value="55" style="font-weight:bold; color:var(--text-main);" onchange="calcTotalGoal()">
             </div>
         </div>
 
-<div class="px-6 mt-6 border-t border-rose-100/50 pt-4 pb-20">
-            <h3 class="text-sm font-bold text-gray-400 mb-2 px-2 flex items-center gap-2">
-                <i class="fa-solid fa-robot text-violet-400"></i>
-                問問 AI 營養師
-            </h3>
-            
-            <div class="glass-card p-4">
-                <div id="aiResponseBox" class="hidden mb-3 bg-rose-50/50 p-3 rounded-xl border border-rose-100 text-sm text-gray-700 leading-relaxed relative">
-                    <div class="absolute -bottom-2 left-6 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-rose-100"></div>
-                    <span id="aiContent"></span>
-                </div>
-
-                <div class="flex gap-2">
-                    <input type="text" id="aiQuestionInput" placeholder="例如：半個排骨便當熱量多少？" 
-                        class="w-full p-3 bg-gray-100 rounded-xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-violet-200 transition text-gray-700">
-                    
-                    <button onclick="askAiQuestion()" class="w-12 h-12 rounded-xl bg-gradient-to-tr from-violet-500 to-fuchsia-500 text-white flex items-center justify-center shadow-md hover:shadow-lg active:scale-95 transition">
-                        <i class="fa-solid fa-paper-plane"></i>
-                    </button>
-                </div>
-                <p class="text-[10px] text-gray-400 mt-2 text-center">
-                    <i class="fa-solid fa-circle-info mr-1"></i>
-                    想問什麼都能問，不用客氣！
-                </p>
-            </div>
-        </div>
-
-<div class="px-6 mb-6">
-            <h2 class="text-sm font-bold text-gray-400 mb-3 px-2 flex justify-between items-center">
-                <span>新增一筆支出</span>
-                <i class="fa-solid fa-pen-nib text-xs"></i>
-            </h2>
-            <div class="glass-card p-5 space-y-4 relative overflow-hidden">
-                <div id="aiCalculatingOverlay" class="absolute inset-0 bg-white/90 z-20 hidden flex flex-col items-center justify-center">
-                    <i class="fa-solid fa-calculator fa-bounce text-3xl text-rose-400 mb-2"></i>
-                    <p class="text-xs font-bold text-gray-500">AI 正在幫你計算熱量...</p>
-                </div>
-
-                <div class="relative">
-                    <label class="text-xs text-gray-400 pl-1 mb-1 block">吃了什麼？</label>
-                    <div class="flex gap-2">
-                        <input type="text" id="foodInput" placeholder="例如：滷雞腿便當去皮" 
-                            class="w-full p-3 bg-gray-50/80 rounded-xl outline-none focus:ring-2 focus:ring-rose-200 text-gray-700 transition border border-transparent focus:border-rose-300"
-                            oninput="searchFood(this.value)">
-                        
-                        <button onclick="askAiToEstimate()" class="whitespace-nowrap px-4 py-2 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white rounded-xl shadow-md hover:shadow-lg active:scale-95 transition text-xs font-bold flex items-center gap-1">
-                            <i class="fa-solid fa-wand-magic-sparkles"></i>
-                            AI幫我算
-                        </button>
-                    </div>
-                    
-                    <div id="suggestions" class="hidden absolute w-full bg-white shadow-xl rounded-xl mt-1 z-20 max-h-40 overflow-y-auto border border-gray-100"></div>
-                </div>
-
-                <div class="flex gap-3">
-                    <div class="w-1/2">
-                        <label class="text-xs text-gray-400 pl-1 mb-1 block">熱量 (Kcal)</label>
-                        <input type="number" id="calInput" placeholder="0" class="w-full p-3 bg-gray-50/80 rounded-xl outline-none focus:ring-2 focus:ring-rose-200 text-gray-700 font-mono text-center font-bold">
-                    </div>
-                    <div class="w-1/2 flex items-end">
-                        <button onclick="addRecord()" class="w-full p-3 bg-gray-800 text-white rounded-xl shadow-lg hover:bg-gray-700 transition active:scale-95 hover:shadow-xl">
-                            <i class="fa-solid fa-plus mr-1"></i> 加入
-                        </button>
-                    </div>
+        <div class="savings-box">
+            <div class="goal-header">
+                <div class="goal-title">🔥 燃燒進度</div>
+                <div class="goal-nums">
+                    已存 <span id="savedCal">0</span> / <span id="totalGoalCal">0</span> kcal
                 </div>
             </div>
+            <div class="big-progress-bg">
+                <div class="big-progress-fill" id="longTermProgress"></div>
+            </div>
+            <div class="progress-badge" id="longTermPercent">0% 完成</div>
+            <p style="font-size:11px; color:var(--text-light); margin-top:8px; line-height:1.4;">
+                *邏輯：減去1公斤需消耗 7700 kcal。<br>
+                進度條會根據你每天 (TDEE - 攝取) 的赤字累積。
+            </p>
         </div>
 
-        <div class="px-6">
-            <h2 class="text-sm font-bold text-gray-400 mb-3 px-2 flex justify-between">
-                <span>今日明細</span>
-                <button onclick="fetchData()" class="text-xs text-rose-400 hover:text-rose-600"><i class="fa-solid fa-rotate-right"></i> 重新整理</button>
-            </h2>
-            <div id="recordList" class="space-y-3 pb-24">
+        <div class="daily-calc">
+            <div class="row-split">
+                <div>
+                    <label>每日 TDEE (代謝)</label>
+                    <input type="number" id="tdee" value="1600" placeholder="基礎代謝" onchange="updateDailyAndSave()">
                 </div>
+                <div>
+                    <label>今日已吃</label>
+                    <input type="number" id="todayEaten" value="0" disabled>
+                </div>
+            </div>
+            <div class="cal-row total">
+                <span>今日存款 (Deficit)</span>
+                <span id="todayDeficit">0</span>
+            </div>
+            <div style="font-size:11px; color:#aaa; margin-top:4px;">正數代表今日變瘦，負數代表變胖</div>
         </div>
-
     </div>
 
-    <script>
-        // ==========================================
-        //  設定區：請填入你的 Google Apps Script 網址
-        // ==========================================
-        const API_URL = "https://script.google.com/macros/s/AKfycbzs4l4E4kxTxxBicnuHSgKo7zb1gMyC-hBnHKBoFW9Hpol1kOuQM8cc32C34fjXepiy/exec"; 
+    <div class="card">
+        <h2>Add Food</h2>
+        <label>Food Name</label>
+        <input type="text" id="foodName" placeholder="輸入食物名稱" onblur="autoSearch()">
+        
+        <label>Calories</label>
+        <input type="number" id="foodCal" placeholder="kcal">
+        
+        <button onclick="addRecord()">＋ Add Record</button>
+        <button onclick="googleSearch()" style="background:transparent; color:#999; border:1px solid #eee; margin-top:10px;">🔍 Google Check</button>
+    </div>
 
-// 個人設定（會自動記住）
-let userSettings = JSON.parse(localStorage.getItem('myBodySettings')) || {
-    budget: 1350,
-    currentWeight: 77,
-    targetWeight:55
+    <div class="card">
+        <h2>History</h2>
+        <div class="record-list" id="recordList">Loading...</div>
+    </div>
+
+</div>
+
+<script>
+// 🔥 請將你的 Web App URL 貼在這裡
+const API_URL = "https://script.google.com/macros/s/AKfycbzs4l4E4kxTxxBicnuHSgKo7zb1gMyC-hBnHKBoFW9Hpol1kOuQM8cc32C34fjXepiy/exec";
+
+// UI Elements
+const els = {
+    startW: document.getElementById('startWeight'),
+    targetW: document.getElementById('targetWeight'),
+    tdee: document.getElementById('tdee'),
+    savedCal: document.getElementById('savedCal'),
+    totalGoalCal: document.getElementById('totalGoalCal'),
+    longTermProgress: document.getElementById('longTermProgress'),
+    longTermPercent: document.getElementById('longTermPercent'),
+    todayEaten: document.getElementById('todayEaten'),
+    todayDeficit: document.getElementById('todayDeficit'),
+    foodName: document.getElementById('foodName'),
+    foodCal: document.getElementById('foodCal'),
+    recordList: document.getElementById('recordList'),
+    loading: document.getElementById('loading')
 };
 
-// ==================== 基本渲染相關 ====================
-function updateSettingsUI() {
-    document.getElementById('budgetDisplay').innerText = userSettings.budget;
-    document.getElementById('displayCurrentWeight').innerText = userSettings.currentWeight;
-    document.getElementById('displayTargetWeight').innerText = userSettings.targetWeight;
-
-    const icon = document.getElementById('weightTrendIcon');
-    if (userSettings.currentWeight > userSettings.targetWeight) {
-        icon.className = "fa-solid fa-arrow-trend-down text-emerald-400";
-    } else if (userSettings.currentWeight < userSettings.targetWeight) {
-        icon.className = "fa-solid fa-arrow-trend-up text-rose-400";
-    } else {
-        icon.className = "fa-solid fa-check text-blue-400";
+// 1. 初始化與讀取設定
+function init() {
+    const saved = JSON.parse(localStorage.getItem('bowbow_settings'));
+    if (saved) {
+        els.startW.value = saved.startW || 77;
+        els.targetW.value = saved.targetW || 55;
+        els.tdee.value = saved.tdee || 1600;
     }
-    render(); // 重新算餘額
+    calcTotalGoal();
+    loadRecords(); // 這裡也會順便觸發 totalSaved 的計算
 }
 
-function render() {
-    const total = records.reduce((a, r) => a + r.cal, 0);
-    const balance = userSettings.budget - total; // 改用個人設定預算！
-
-    document.getElementById('totalIntake').innerText = total;
-    document.getElementById('balance').innerText = balance;
+// 2. 計算總目標熱量 (固定目標)
+function calcTotalGoal() {
+    const start = parseFloat(els.startW.value);
+    const target = parseFloat(els.targetW.value);
     
-    const percent = Math.min((total / userSettings.budget) * 100, 100);
-    const bar = document.getElementById('progressBar');
-    bar.style.width = percent + '%';
-
-    if (balance < 0) {
-        document.getElementById('balance').classList.replace('text-emerald-500', 'text-red-500');
-        bar.classList.replace('bg-rose-400', 'bg-red-500');
-        document.getElementById('statusText').innerText = "預算超支了！明天再加油";
-    } else {
-        document.getElementById('balance').classList.replace('text-red-500', 'text-emerald-500');
-        bar.classList.replace('bg-red-500', 'bg-rose-400');
-        document.getElementById('statusText').innerText = "今天還可以吃得很開心！";
-    }
-
-    // 明細列表
-    const list = document.getElementById('recordList');
-    if (records.length === 0) {
-        list.innerHTML = `<div class="text-center py-10 text-gray-300"><i class="fa-regular fa-clipboard text-4xl mb-3"></i><p>今天還沒開始記帳喔！</p></div>`;
-    } else {
-        list.innerHTML = records.map(r => `
-            <div class="glass-card p-4 flex justify-between items-center">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-rose-50 rounded-full flex-center text-rose-400">
-                        <i class="fa-solid fa-utensils"></i>
-                    </div>
-                    <div>
-                        <p class="font-bold text-gray-800">${r.name}</p>
-                        <p class="text-xs text-gray-400">${r.time}</p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-3">
-                    <span class="font-mono text-lg font-bold text-gray-600">-${r.cal}</span>
-                    <button onclick="deleteRecord('${r.id}')" class="w-8 h-8 hover:bg-red-50 rounded-full text-gray-400 hover:text-red-500">
-                        <i class="fa-solid fa-trash-can"></i>
-                    </button>
-                </div>
-            </div>
-        `).join('');
-    }
+    // 公式：公斤差 * 7700
+    let diff = start - target;
+    if (diff < 0) diff = 0; // 防止目標比現在重
+    
+    const totalCalNeeded = Math.round(diff * 7700);
+    els.totalGoalCal.textContent = totalCalNeeded.toLocaleString();
+    
+    saveSettings();
+    return totalCalNeeded;
 }
 
-// ==================== 核心功能 ====================
-let records = [];
-let foodDatabase = [];
-
-async function fetchData() {
-    showLoading(true);
-    try {
-        const res = await fetch(API_URL + "?action=getData");
-        const data = await res.json();
-        if (data.status === "success") {
-            foodDatabase = data.foodDB;
-            const today = new Date().toLocaleDateString('zh-TW');
-            records = data.records.filter(r => r.date === today);
-            render();
-        }
-    } catch (e) {
-        alert("連線失敗，請檢查網路或重新部署 GAS");
-    } finally {
-        showLoading(false);
-    }
+// 3. 儲存設定到本地
+function saveSettings() {
+    localStorage.setItem('bowbow_settings', JSON.stringify({
+        startW: els.startW.value,
+        targetW: els.targetW.value,
+        tdee: els.tdee.value
+    }));
 }
 
-function addRecord() {
-    const name = document.getElementById('foodInput').value.trim();
-    const cal = parseInt(document.getElementById('calInput').value);
-    if (!name || isNaN(cal)) return alert("請填完整喔～");
-
-    const id = Date.now();
-    const time = new Date().toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'});
-
-    records.unshift({id, name, cal, time, date: new Date().toLocaleDateString('zh-TW')});
-    render();
-
-    // 送去雲端
-    const fd = new FormData();
-    fd.append('action', 'addRecord');
-    fd.append('id', id);
-    fd.append('name', name);
-    fd.append('cal', cal);
-    fd.append('time', time);
-    fetch(API_URL, {method: "POST", body: fd});
-
-    // 如果是新食物就學習
-    if (!foodDatabase.some(f => f.name === name)) {
-        const fd2 = new FormData();
-        fd2.append('action', 'addFood');
-        fd2.append('name', name);
-        fd2.append('cal', cal);
-        fetch(API_URL, {method: "POST", body: fd2});
-    }
-
-    // 清空
-    document.getElementById('foodInput').value = '';
-    document.getElementById('calInput').value = '';
-    document.getElementById('suggestions').classList.add('hidden');
-}
-
-function deleteRecord(id) {
-    if (!confirm("確定刪除？")) return;
-    records = records.filter(r => r.id != id);
-    render();
-    const fd = new FormData();
-    fd.append('action', 'deleteRecord');
-    fd.append('id', id);
-    fetch(API_URL, {method: "POST", body: fd});
-}
-
-// ==================== 搜尋食物（這就是你缺的！）===================
-function searchFood(kw) {
-    const box = document.getElementById('suggestions');
-    if (!kw) return box.classList.add('hidden');
-
-    const hits = foodDatabase.filter(f => f.name.includes(kw)).slice(0, 8);
-    if (hits.length) {
-        box.innerHTML = hits.map(f => `
-            <div class="p-3 hover:bg-rose-50 cursor-pointer flex justify-between border-b last:border-0"
-                 onclick="selectFood('${f.name}', ${f.cal})">
-                <span class="font-medium">${f.name}</span>
-                <span class="text-xs bg-gray-100 px-2 py-1 rounded-full text-gray-500">${f.cal} cal</span>
-            </div>
-        `).join('');
-        box.classList.remove('hidden');
-    } else {
-        box.innerHTML = `<div class="p-3 text-rose-500 text-sm">新食物！記帳後自動記住</div>`;
-        box.classList.remove('hidden');
-    }
-}
-
-function selectFood(name, cal) {
-    document.getElementById('foodInput').value = name;
-    document.getElementById('calInput').value = cal;
-    document.getElementById('suggestions').classList.add('hidden');
-}
-
-// ==================== AI 熱量估算（現在走後端代理）===================
-async function askAiToEstimate() {
-    const food = document.getElementById('foodInput').value.trim();
-    if (!food) return alert("先說吃了什麼嘛～");
-
-    document.getElementById('aiCalculatingOverlay').classList.remove('hidden');
-
-    const prompt = `請用台灣常見份量估算「${food}」的熱量，只回傳一個純數字，不要任何說明、單位或標點。例如一碗白飯就是280`;
-
+// 4. API 呼叫
+async function callApi(payload) {
+    els.loading.style.display = "flex";
     try {
         const res = await fetch(API_URL, {
             method: "POST",
-            body: new URLSearchParams({ action: 'askGemini', prompt: prompt })
+            body: JSON.stringify(payload)
         });
-        const json = await res.json();
-        
-        if (json.status === "success") {
-            // 加強解析：去除所有非數字，然後取第一串數字
-            const match = json.reply.match(/\d+/);
-            const cal = match ? parseInt(match[0]) : 0;
-            
-            if (cal > 0 && cal < 3000) { // 合理範圍過濾
-                document.getElementById('calInput').value = cal;
-                document.getElementById('calInput').classList.add('bg-rose-100');
-                setTimeout(() => document.getElementById('calInput').classList.remove('bg-rose-100'), 800);
-            } else {
-                alert("AI 給的數字怪怪的，手動輸入吧～");
-            }
-        } else {
-            alert("AI 回傳錯誤：" + (json.message || "未知"));
-        }
+        return await res.json();
     } catch (e) {
         console.error(e);
-        alert("連線失敗，請檢查 GAS 是否部署正確");
+        alert("連線錯誤");
     } finally {
-        document.getElementById('aiCalculatingOverlay').classList.add('hidden');
+        els.loading.style.display = "none";
     }
 }
-// ==================== AI 營養師聊天 ====================
-async function askAiQuestion() {
-    const input = document.getElementById('aiQuestionInput');
-    const box = document.getElementById('aiResponseBox');
-    const content = document.getElementById('aiContent');
-    const question = input.value.trim();
 
-    box.classList.remove('hidden');
-    content.innerHTML = "思考中…";
-
-    const total = document.getElementById('totalIntake').innerText;
-    const budget = userSettings.budget;
-    const balance = document.getElementById('balance').innerText;
-
-    const prompt = question 
-        ? `你是溫柔又幽默的台灣營養師，使用者問：${question}\n今天已吃 ${total} 大卡，預算 ${budget}，剩 ${balance}。請用 2-3 句台灣口吻回答。`
-        : `今天已吃 ${total}，預算 ${budget}，剩 ${balance}，給我一句鼓勵或吐槽的話（台灣腔）`;
- 
-try {
-    const res = await fetch(API_URL, {
-        method: "POST",
-        body: new URLSearchParams({ action: 'askGemini', prompt: prompt })
-    });
-    const json = await res.json();
-    if (json.status === "success") {
-        // 加強解析：去除 Markdown 標記
-        let text = json.reply
-            .replace(/```json|```markdown|```/g, '')  // 去掉 ``` 包裝
-            .replace(/\*\*(.*?)\*\*/g, '$1')  // 去掉粗體 **
-            .replace(/__(.*?)__/g, '$1')  // 去掉粗體 __
-            .trim();
-        typeWriter(text, content);
-    } else {
-        content.innerText = `AI 回傳錯誤：${json.message || "未知問題"}`;
-    }
-} catch (e) {
-    console.error("AI 請求錯誤:", e);  // 方便你 debug
-    content.innerText = "網路不穩，明天再問我吧～";
-}
-input.value = "";  // 清空輸入框
-
- 
-function typeWriter(text, el) {
-    el.innerHTML = "";
-    let i = 0;
-    const t = setInterval(() => {
-        el.innerHTML += text[i] === "\n" ? "<br>" : text[i];
-        i++;
-        if (i >= text.length) clearInterval(t);
-    }, 30);
-}
-
-// ==================== 其他小工具 ====================
-function showLoading(yes) {
-    document.getElementById('loadingOverlay').classList[yes ? 'remove' : 'add']('hidden');
-}
-
-// 網頁載入完成
-window.onload = () => {
-    document.getElementById('currentDate').innerText = new Date().toLocaleDateString('zh-TW');
-    updateSettingsUI();
-    fetchData();
-};
-</script>
-<div id="settingsModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center hidden">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onclick="closeSettings()"></div>
-        
-        <div class="bg-white w-full max-w-sm mx-4 mb-4 sm:mb-0 rounded-2xl shadow-2xl z-10 p-6 transform transition-all scale-100">
-            <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
-                <i class="fa-solid fa-sliders text-rose-400 mr-2"></i> 個人設定
-            </h3>
+// 5. 載入紀錄與計算累積儲蓄
+async function loadRecords() {
+    // A. 載入列表
+    const data = await callApi({ action: "getRecords" });
+    
+    let todayTotal = 0;
+    const todayStr = new Date().toISOString().split('T')[0].replace(/-/g, '/');
+    
+    els.recordList.innerHTML = "";
+    if (Array.isArray(data)) {
+        data.forEach(item => {
+            // 計算今日熱量
+            if (item.date.includes(todayStr)) {
+                todayTotal += Number(item.calories);
+            }
             
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 mb-1">每日熱量目標 (TDEE)</label>
-                    <input type="number" id="settingBudget" class="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-rose-200 font-mono text-lg font-bold text-gray-700">
-                    <p class="text-[10px] text-gray-400 mt-1">*這是你一天的預算上限</p>
-                </div>
-                
-                <div class="flex gap-4">
-                    <div class="w-1/2">
-                        <label class="block text-xs font-bold text-gray-500 mb-1">目前體重 (kg)</label>
-                        <input type="number" id="settingCurrentWeight" class="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-rose-200 font-mono font-bold text-gray-700">
-                    </div>
-                    <div class="w-1/2">
-                        <label class="block text-xs font-bold text-gray-500 mb-1">目標體重 (kg)</label>
-                        <input type="number" id="settingTargetWeight" class="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-rose-200 font-mono font-bold text-gray-700">
-                    </div>
-                </div>
-            </div>
+            // 渲染列表
+            els.recordList.innerHTML += `
+                <div class="record-item">
+                    <span>${item.item} <small style="color:#ccc">(${item.calories})</small></span>
+                    <button class="delete-btn" onclick="deleteRecord('${item.id}')">×</button>
+                </div>`;
+        });
+    }
+    
+    els.todayEaten.value = todayTotal;
+    updateDailyAndSave(false); // 更新今日赤字顯示
 
-            <button onclick="saveSettings()" class="w-full mt-6 py-3 bg-gray-800 text-white rounded-xl font-bold shadow-lg hover:bg-gray-700 active:scale-95 transition">
-                儲存設定
-            </button>
-        </div>
-</div>
+    // B. 請後端計算「歷史總赤字」
+    // 傳送 TDEE 給後端，讓它去算每天省多少
+    const stats = await callApi({ 
+        action: "calcSavings", 
+        tdee: els.tdee.value 
+    });
+    
+    if (stats && stats.totalSaved !== undefined) {
+        updateLongTermProgress(stats.totalSaved);
+    }
+}
+
+function updateDailyAndSave(shouldReload = true) {
+    const tdee = parseInt(els.tdee.value) || 1600;
+    const eaten = parseInt(els.todayEaten.value) || 0;
+    const deficit = tdee - eaten;
+    
+    els.todayDeficit.textContent = deficit;
+    els.todayDeficit.style.color = deficit >= 0 ? "#C9B29C" : "#c0392b";
+    
+    if(shouldReload) saveSettings();
+}
+
+function updateLongTermProgress(savedAmount) {
+    // 取得總目標
+    const totalGoal = parseInt(els.totalGoalCal.textContent.replace(/,/g, '')) || 1;
+    
+    // 更新數字
+    els.savedCal.textContent = savedAmount.toLocaleString();
+    
+    // 計算百分比
+    let percent = (savedAmount / totalGoal) * 100;
+    percent = Math.min(100, Math.max(0, percent)); // 0~100
+    
+    els.longTermProgress.style.width = percent + "%";
+    els.longTermPercent.textContent = percent.toFixed(1) + "% 完成";
+}
+
+// 其餘功能：新增、搜尋、刪除
+async function addRecord() {
+    const name = els.foodName.value;
+    const cal = els.foodCal.value;
+    if(!name || !cal) return alert("請輸入完整");
+    
+    await callApi({ action: "addRecord", item: name, calories: cal });
+    els.foodName.value = ""; els.foodCal.value = "";
+    loadRecords();
+}
+
+async function autoSearch() {
+    const name = els.foodName.value;
+    if(!name) return;
+    if(els.foodCal.value) return; 
+    
+    const res = await callApi({ action: "searchFood", item: name });
+    if(res.calories) {
+        els.foodCal.value = res.calories;
+        els.foodCal.style.background = "#fff";
+        setTimeout(()=>els.foodCal.style.background="", 300);
+    }
+}
+
+async function deleteRecord(id) {
+    if(!confirm("刪除此筆?")) return;
+    await callApi({ action: "deleteRecord", id: id });
+    loadRecords();
+}
+
+function googleSearch() {
+    const val = els.foodName.value;
+    if(val) window.open(`https://www.google.com/search?q=${val}+熱量`);
+}
+
+window.onload = init;
+</script>
 
 </body>
 </html>
