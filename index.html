@@ -148,6 +148,31 @@ button:hover { background: var(--accent-hover); }
     border-top: 1px dashed #E0D6CC;
     padding-top: 15px;
 }
+/* --- 新增的樣式 (放在 .row-split 上面) --- */
+
+/* 專門給上方三個體重輸入框用的三欄排版 */
+.weight-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr; /* 三個等寬欄位 */
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+/* 手機版畫面較窄時，自動變成直排，比較好按 */
+@media (max-width: 600px) {
+  .weight-inputs {
+     grid-template-columns: 1fr;
+  }
+}
+
+/* ------------------------------------ */
+
+/* 原本的 .row-split 保持不變，繼續給下方的 TDEE 區塊使用 */
+.row-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
 .row-split {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -198,21 +223,24 @@ button:hover { background: var(--accent-hover); }
 
 <div class="container">
     
-    <div class="card">
-        <h2>Savings Bank</h2>
-        
-        <div class="row-split">
-            <div>
-                <label>初始體重 (Start)</label>
-                <input type="number" id="startWeight" value="77" onchange="calcTotalGoal()">
-            </div>
-            <div>
-                <label>目標體重 (Goal)</label>
-                <input type="number" id="targetWeight" value="55" style="font-weight:bold; color:var(--text-main);" onchange="calcTotalGoal()">
-            </div>
+<div class="card">
+    <h2>Savings Bank</h2>
+    
+    <div class="weight-inputs">
+        <div>
+            <label>初始 (Start)</label>
+            <input type="number" id="startWeight" value="77" onchange="calcTotalGoal(); saveSettings();">
         </div>
-
-        <div class="savings-box">
+        <div>
+                <label style="color:var(--accent-hover);">今日 (Current)</label>
+            <input type="number" id="currentWeight" placeholder="今日秤重" onchange="saveSettings();" style="border: 1px solid var(--accent);">
+        </div>
+        <div>
+            <label>目標 (Goal)</label>
+            <input type="number" id="targetWeight" value="55" style="font-weight:bold; color:var(--text-main);" onchange="calcTotalGoal(); saveSettings();">
+        </div>
+    </div>
+    <div class="savings-box">
             <div class="goal-header">
                 <div class="goal-title">🔥 燃燒進度</div>
                 <div class="goal-nums">
@@ -233,7 +261,7 @@ button:hover { background: var(--accent-hover); }
             <div class="row-split">
                 <div>
                     <label>每日 TDEE (代謝)</label>
-                    <input type="number" id="tdee" value="1600" placeholder="基礎代謝" onchange="updateDailyAndSave()">
+                    <input type="number" id="tdee" value="1350" placeholder="基礎代謝" onchange="updateDailyAndSave()">
                 </div>
                 <div>
                     <label>今日已吃</label>
@@ -274,6 +302,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzs4l4E4kxTxxBicnuHSgKo
 // UI Elements
 const els = {
     startW: document.getElementById('startWeight'),
+currentW: document.getElementById('currentWeight'), 
     targetW: document.getElementById('targetWeight'),
     tdee: document.getElementById('tdee'),
     savedCal: document.getElementById('savedCal'),
@@ -288,46 +317,80 @@ const els = {
     loading: document.getElementById('loading')
 };
 
-// 1. 初始化與讀取設定
-function init() {
+
+// 1. 初始化 (升級版：先讀快取，再讀雲端)
+async function init() {
+    // A. 先讀本地快取 (讓畫面馬上出來，不用等)
     const saved = JSON.parse(localStorage.getItem('bowbow_settings'));
     if (saved) {
-        els.startW.value = saved.startW || 77;
-        els.targetW.value = saved.targetW || 55;
-        els.tdee.value = saved.tdee || 1600;
+        if(saved.startW) els.startW.value = saved.startW;
+        if(saved.currentW) els.currentW.value = saved.currentW;
+        if(saved.targetW) els.targetW.value = saved.targetW;
+        if(saved.tdee) els.tdee.value = saved.tdee;
+        calcTotalGoal(); // 先算一次
     }
-    calcTotalGoal();
-    loadRecords(); // 這裡也會順便觸發 totalSaved 的計算
+
+    // B. 接著去雲端抓最新的 (如果有不同步的，這裡會更新)
+    // 這裡我們不顯示全屏 loading，偷偷在背景更新就好
+    try {
+        const cloudSettings = await callApi({ action: "getSettings" });
+        if (cloudSettings && cloudSettings.start) {
+            els.startW.value = cloudSettings.start;
+            els.currentW.value = cloudSettings.current;
+            els.targetW.value = cloudSettings.target;
+            els.tdee.value = cloudSettings.tdee;
+            
+            // 更新本地快取，確保下次也是最新的
+            localStorage.setItem('bowbow_settings', JSON.stringify({
+                startW: cloudSettings.start,
+                currentW: cloudSettings.current,
+                targetW: cloudSettings.target,
+                tdee: cloudSettings.tdee
+            }));
+            
+            calcTotalGoal(); // 雲端資料回來後，再重算一次
+            console.log("已從雲端同步設定 ☁️");
+        }
+    } catch(e) {
+        console.log("雲端設定讀取失敗 (可能是第一次使用)");
+    }
+
+    loadRecords(); 
 }
 
-// 2. 計算總目標熱量 (固定目標)
-function calcTotalGoal() {
-    const start = parseFloat(els.startW.value);
-    const target = parseFloat(els.targetW.value);
-    
-    // 公式：公斤差 * 7700
-    let diff = start - target;
-    if (diff < 0) diff = 0; // 防止目標比現在重
-    
-    const totalCalNeeded = Math.round(diff * 7700);
-    els.totalGoalCal.textContent = totalCalNeeded.toLocaleString();
-    
-    saveSettings();
-    return totalCalNeeded;
-}
-
-// 3. 儲存設定到本地
+// 3. 儲存設定 (升級版：同時存本地 + 雲端)
 function saveSettings() {
-    localStorage.setItem('bowbow_settings', JSON.stringify({
-        startW: els.startW.value,
-        targetW: els.targetW.value,
+    const data = {
+        start: els.startW.value,
+        current: els.currentW.value,
+        target: els.targetW.value,
         tdee: els.tdee.value
-    }));
-}
+    };
 
-// 4. API 呼叫
-async function callApi(payload) {
-    els.loading.style.display = "flex";
+    // A. 存本地
+    localStorage.setItem('bowbow_settings', JSON.stringify({
+        startW: data.start,
+        currentW: data.current,
+        targetW: data.target,
+        tdee: data.tdee
+    }));
+
+    // B. 存雲端 (非同步呼叫，不用等它回來)
+    // 注意：為了避免你每打一個字就呼叫一次 API，我們可以簡單做個保護，但這裡直接呼叫也無妨，Google Sheet 頂得住
+// B. 存雲端
+callApi({ 
+    action: "saveSettings", 
+    start: data.start, 
+    current: data.current, 
+    target: data.target, 
+    tdee: data.tdee 
+}, false); 
+
+// 4. API 呼叫 (優化版：支援背景執行)
+async function callApi(payload, showLoading = true) {
+    // 只有當 showLoading 為 true 時，才顯示遮罩
+    if (showLoading) els.loading.style.display = "flex";
+    
     try {
         const res = await fetch(API_URL, {
             method: "POST",
@@ -336,27 +399,77 @@ async function callApi(payload) {
         return await res.json();
     } catch (e) {
         console.error(e);
-        alert("連線錯誤");
+        // 背景執行時就不彈出惱人的 alert，只在 console 報錯
+        if (showLoading) alert("連線錯誤"); 
     } finally {
-        els.loading.style.display = "none";
+        // 不管成功失敗，都要關閉遮罩
+        if (showLoading) els.loading.style.display = "none";
     }
 }
 
 // 5. 載入紀錄與計算累積儲蓄
+// 5. 載入紀錄與計算累積儲蓄 (修正時區問題版)
 async function loadRecords() {
     // A. 載入列表
     const data = await callApi({ action: "getRecords" });
     
     let todayTotal = 0;
-    const todayStr = new Date().toISOString().split('T')[0].replace(/-/g, '/');
+
+    // 🔥 修正重點開始：取得「本地」今日的日期物件，並將時間歸零
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0); // 設定為今天凌晨 00:00:00
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999); // 設定為今天晚上 23:59:59
+    // 🔥 修正重點結束
     
     els.recordList.innerHTML = "";
     if (Array.isArray(data)) {
         data.forEach(item => {
-            // 計算今日熱量
-            if (item.date.includes(todayStr)) {
+            // 將後端回傳的日期字串轉為 Date 物件
+            const itemDate = new Date(item.date);
+
+            // 判斷該紀錄的時間是否落在「今天」的範圍內
+            if (itemDate >= todayStart && itemDate <= todayEnd) {
                 todayTotal += Number(item.calories);
             }
+            
+            // 渲染列表 (顯示日期，只取前10個字元 yyyy-mm-dd)
+            let dateDisplay = item.date;
+            try {
+                // 嘗試轉成比較好看的本地日期格式
+                dateDisplay = new Date(item.date).toLocaleDateString();
+            } catch(e) {
+                dateDisplay = item.date.substring(0, 10);
+            }
+
+            els.recordList.innerHTML += `
+                <div class="record-item">
+                    <div>
+                        <div style="font-weight:500;">${item.item}</div>
+                        <div style="font-size:11px; color:#ccc;">${dateDisplay}</div>
+                    </div>
+                    <div style="display:flex; align-items:center;">
+                        <span style="color:var(--accent-hover); font-weight:500; margin-right:5px;">${item.calories}</span>
+                        <button class="delete-btn" onclick="deleteRecord('${item.id}')">×</button>
+                    </div>
+                </div>`;
+        });
+    }
+    
+    // 更新介面顯示
+    els.todayEaten.value = todayTotal;
+    updateDailyAndSave(false); // 更新今日赤字顯示
+
+    // B. 請後端計算「歷史總赤字」
+    const stats = await callApi({ 
+        action: "calcSavings", 
+        tdee: els.tdee.value 
+    });
+    
+    if (stats && stats.totalSaved !== undefined) {
+        updateLongTermProgress(stats.totalSaved);
+    }
+}
             
             // 渲染列表
             els.recordList.innerHTML += `
@@ -383,7 +496,7 @@ async function loadRecords() {
 }
 
 function updateDailyAndSave(shouldReload = true) {
-    const tdee = parseInt(els.tdee.value) || 1600;
+    const tdee = parseInt(els.tdee.value) || 1350;
     const eaten = parseInt(els.todayEaten.value) || 0;
     const deficit = tdee - eaten;
     
