@@ -495,21 +495,22 @@
 
 /* 共用呼叫 Gemini（最穩定寫法） */
 async function callGemini(promptText) {
+  const formData = new FormData();
+  formData.append('action', 'askGemini');
+  formData.append('prompt', promptText);
+
   const res = await fetch(API_URL, {
     method: "POST",
-    body: new FormData().append("action", "askGemini").append("prompt", promptText)
+    body: formData
   });
+  
   const data = await res.json();
-  return data.reply;
+  if (data.status === "success") {
+    return data.reply;
+  } else {
+    throw new Error(data.message || "AI 請求失敗");
+  }
 }
-
-    if (!res.ok) throw new Error("Gemini API 失敗");
-
-    const data = await res.json();
-    if (!data.candidates || !data.candidates.length) {
-        throw new Error("Gemini 沒回內容");
-    }
-
     return data.candidates[0].content.parts[0].text.trim();
 }
 
