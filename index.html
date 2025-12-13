@@ -531,9 +531,10 @@ async function loadRecords(showLoading = true) {
         }
 
         data.forEach(item => {
-            const itemDate = new Date(item.date);
-            const isToday = (itemDate >= todayStart && itemDate <= todayEnd);
-            
+const todayStr = new Date().toLocaleDateString('sv-SE'); // yyyy-MM-dd
+const itemDateStr = item.date.replaceAll('/', '-');      // yyyy-MM-dd
+const isToday = itemDateStr === todayStr;
+             
             // 計算熱量：只算今天的
             if (isToday) {
                 todayTotal += Number(item.calories);
@@ -549,8 +550,8 @@ async function loadRecords(showLoading = true) {
                      dateDisplay = item.date.includes('T') ? item.date.split('T')[1].substring(0,5) : "Today";
                 } else {
                      // 舊的顯示日期 (例如 12/13)
-                     const d = new Date(item.date);
-                     dateDisplay = (d.getMonth()+1) + "/" + d.getDate();
+                    const parts = item.date.split('/');
+dateDisplay = parts[1] + '/' + parts[2];
                 }
             } catch(e) {
                 dateDisplay = item.date.substring(0, 10);
