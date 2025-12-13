@@ -225,25 +225,35 @@ button:hover { background: var(--accent-hover); }
 <div class="card">
     <h2>Savings Bank</h2>
     
-    <div class="weight-inputs">
+<div class="weight-inputs">
         <div>
             <label>初始 (Start)</label>
             <input type="number" id="startWeight" value="77" onchange="calcTotalGoal(); saveSettings();">
         </div>
-        <div>
-<div style="display:flex; flex-direction:column;">
+
+        <div style="display:flex; flex-direction:column;">
             <label style="color:var(--accent-hover);">今日 (Current)</label>
-            <div style="display:flex; gap:8px;"> <input type="number" id="currentWeight" placeholder="輸入" style="margin-bottom:0;">
+            
+            <div style="display:flex; gap:8px;"> 
+                <input type="number" id="currentWeight" placeholder="輸入" style="margin-bottom:0;">
                 <button onclick="logWeight()" style="width:auto; padding:0 12px; background:var(--accent-hover);">💾</button>
             </div>
+
+            <div id="weightDiffDisplay" style="font-size:13px; color:var(--text-main); margin-top:6px; font-weight:bold;">
+                距離目標: <span id="diffVal" style="color:#D4AF37;">--</span> kg
+            </div>
+
             <div id="lastWeightLog" style="font-size:10px; color:#aaa; margin-top:4px; text-align:right;">
                 尚未紀錄
             </div>
         </div>
+
+        <div>
             <label>目標 (Goal)</label>
             <input type="number" id="targetWeight" value="55" style="font-weight:bold; color:var(--text-main);" onchange="calcTotalGoal(); saveSettings();">
         </div>
     </div>
+
     <div class="savings-box">
             <div class="goal-header">
                 <div class="goal-title">🔥 燃燒進度</div>
@@ -300,6 +310,7 @@ button:hover { background: var(--accent-hover); }
 </div>
 
 <script>
+<script>
 // 🔥 請將你的 Web App URL 貼在這裡
 const API_URL = "https://script.google.com/macros/s/AKfycbzs4l4E4kxTxxBicnuHSgKo7zb1gMyC-hBnHKBoFW9Hpol1kOuQM8cc32C34fjXepiy/exec";
 
@@ -331,7 +342,7 @@ async function init() {
         if(saved.targetW) els.targetW.value = saved.targetW;
         if(saved.tdee) els.tdee.value = saved.tdee;
         calcTotalGoal(); 
-updateDiff();
+        updateDiff(); // 初始化時也要算一下差距
     }
 
     // B. 去雲端抓最新的
@@ -351,6 +362,7 @@ updateDiff();
             }));
             
             calcTotalGoal(); 
+            updateDiff(); // 雲端資料回來後再算一次
             console.log("已從雲端同步設定 ☁️");
         }
     } catch(e) {
@@ -360,7 +372,7 @@ updateDiff();
     loadRecords(); 
 }
 
-// 2. 計算總目標 (補回原本遺失的函式)
+// 2. 計算總目標熱量
 function calcTotalGoal() {
     const start = parseFloat(els.startW.value);
     const target = parseFloat(els.targetW.value);
@@ -372,11 +384,31 @@ function calcTotalGoal() {
     const totalCalNeeded = Math.round(diff * 7700);
     els.totalGoalCal.textContent = totalCalNeeded.toLocaleString();
     
-    // 這裡不自動儲存，避免初始化時重複寫入，儲存交由 onchange 觸發
     return totalCalNeeded;
 }
 
-// 3. 儲存設定
+// 3. 計算並顯示「還差幾公斤」 (新功能)
+function updateDiff() {
+    const current = parseFloat(els.currentW.value);
+    const target = parseFloat(els.targetW.value);
+    const diffEl = document.getElementById("diffVal");
+    const labelEl = document.getElementById("weightDiffDisplay");
+
+    // 只有當元素存在時才更新，避免報錯
+    if (current && target && diffEl && labelEl) {
+        let diff = (current - target).toFixed(1); // 取小數點後一位
+        
+        if (diff > 0) {
+            diffEl.innerText = diff;
+            labelEl.innerHTML = `距離目標: <span style="color:#c0392b; font-size:15px;">${diff}</span> kg`;
+        } else {
+            labelEl.innerHTML = "🎉 已達成目標！";
+            labelEl.style.color = "#D4AF37";
+        }
+    }
+}
+
+// 4. 儲存設定
 function saveSettings() {
     const data = {
         start: els.startW.value,
@@ -385,7 +417,6 @@ function saveSettings() {
         tdee: els.tdee.value
     };
 
-    // A. 存本地
     localStorage.setItem('bowbow_settings', JSON.stringify({
         startW: data.start,
         currentW: data.current,
@@ -393,7 +424,6 @@ function saveSettings() {
         tdee: data.tdee
     }));
 
-    // B. 存雲端 (不顯示 loading)
     callApi({ 
         action: "saveSettings", 
         start: data.start, 
@@ -401,9 +431,9 @@ function saveSettings() {
         target: data.target, 
         tdee: data.tdee 
     }, false);
-} // <--- 之前這裡少了大括號，已經補上
+}
 
-// 4. API 呼叫 (優化版)
+// 5. API 呼叫 (優化版)
 async function callApi(payload, showLoading = true) {
     if (showLoading) els.loading.style.display = "flex";
     
@@ -421,7 +451,7 @@ async function callApi(payload, showLoading = true) {
     }
 }
 
-// 5. 載入紀錄 (修正版：移除重複代碼)
+// 6. 載入紀錄
 async function loadRecords() {
     const data = await callApi({ action: "getRecords" });
     
@@ -474,6 +504,7 @@ async function loadRecords() {
     }
 }
 
+// 7. 更新每日赤字顯示
 function updateDailyAndSave(shouldReload = true) {
     const tdee = parseInt(els.tdee.value) || 1350;
     const eaten = parseInt(els.todayEaten.value) || 0;
@@ -485,6 +516,7 @@ function updateDailyAndSave(shouldReload = true) {
     if(shouldReload) saveSettings();
 }
 
+// 8. 更新長期進度條
 function updateLongTermProgress(savedAmount) {
     const totalGoal = parseInt(els.totalGoalCal.textContent.replace(/,/g, '')) || 1;
     els.savedCal.textContent = savedAmount.toLocaleString();
@@ -496,6 +528,41 @@ function updateLongTermProgress(savedAmount) {
     els.longTermPercent.textContent = percent.toFixed(1) + "% 完成";
 }
 
+// 9. 記錄體重按鈕功能 (保留這個新的！)
+async function logWeight() {
+    const w = els.currentW.value;
+    if (!w) return alert("請輸入體重！");
+
+    const btn = event.target;
+    const originalText = btn.innerText;
+    btn.innerText = "⏳";
+    btn.disabled = true;
+
+    try {
+        await callApi({ action: "logWeight", weight: w }, false);
+
+        updateDiff(); // 🔥 更新差距文字
+        calcTotalGoal(); 
+        
+        const now = new Date();
+        const timeStr = (now.getMonth()+1)+'/'+now.getDate()+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+        document.getElementById("lastWeightLog").innerText = "已存: " + timeStr;
+        document.getElementById("lastWeightLog").style.color = "#D4AF37";
+
+        saveSettings(); 
+
+    } catch (e) {
+        alert("儲存失敗");
+    } finally {
+        btn.innerText = "✅";
+        setTimeout(() => { 
+            btn.innerText = originalText; 
+            btn.disabled = false; 
+        }, 2000);
+    }
+}
+
+// 10. 其他功能
 async function addRecord() {
     const name = els.foodName.value;
     const cal = els.foodCal.value;
@@ -511,44 +578,31 @@ async function autoSearch() {
     const calInput = els.foodCal;
     const name = nameInput.value.trim();
 
-    // 如果沒有輸入名字，或者熱量欄位已經有數字了，就不自動搜尋
     if (!name) return;
     if (calInput.value && calInput.value != "") return;
 
-    // 1. 顯示「查詢中」的狀態
     const originalPlaceholder = calInput.placeholder;
-    calInput.value = ""; // 清空
+    calInput.value = ""; 
     calInput.placeholder = "🔍 查詢中...";
-    calInput.style.backgroundColor = "#f0f0f0"; // 變灰一點點
+    calInput.style.backgroundColor = "#f0f0f0"; 
 
     try {
-        // 2. 呼叫後端 API
-        // false 代表不要跳全螢幕的 Loading，只在欄位裡顯示就好
         const res = await callApi({ action: "searchFood", item: name }, false);
 
         if (res && res.calories) {
-            // 3. 找到了！填入熱量
             calInput.value = res.calories;
-            
-            // 閃爍一下黃色背景提醒使用者
             calInput.style.backgroundColor = "#fff9db"; 
             calInput.style.transition = "background 0.5s";
             setTimeout(() => {
                 calInput.style.backgroundColor = ""; 
             }, 1000);
-            
-            console.log(`已自動帶入 ${name} 的熱量: ${res.calories}`);
-        } else {
-            // 沒找到
-            console.log("資料庫中沒有這個食物");
         }
     } catch (e) {
         console.error("搜尋失敗", e);
     } finally {
-        // 4. 恢復原狀
         calInput.placeholder = originalPlaceholder;
         if (calInput.value === "") {
-             calInput.style.backgroundColor = ""; // 如果沒填入值，背景恢復
+             calInput.style.backgroundColor = ""; 
         }
     }
 }
@@ -565,106 +619,6 @@ function googleSearch() {
 }
 
 window.onload = init;
-
-async function logWeight() {
-    const w = els.currentW.value;
-    if (!w) return alert("請輸入體重！");
-
-    // 1. 按鈕變色給回饋
-    const btn = event.target; // 抓到按鈕
-    const originalText = btn.innerText;
-    btn.innerText = "⏳";
-    btn.disabled = true;
-
-    try {
-        // 2. 呼叫後端
-        await callApi({
-            action: "logWeight",
-            weight: w
-        }, false); // false 代表不顯示全螢幕 loading，改用按鈕小動畫
-
-        // 3. 更新畫面
-        updateProgress(); // 更新進度條
-        
-        // 顯示紀錄時間
-        const now = new Date();
-        const timeStr = (now.getMonth()+1)+'/'+now.getDate()+' '+now.getHours()+':'+now.getMinutes();
-        document.getElementById("lastWeightLog").innerText = "已存: " + timeStr;
-        document.getElementById("lastWeightLog").style.color = "#D4AF37"; // 金色回饋
-
-        // 順便存到本地快取，避免重整消失
-        saveSettings(); 
-
-    } catch (e) {
-        alert("儲存失敗，請檢查網路");
-    } finally {
-        // 4. 恢復按鈕
-        btn.innerText = "✅";
-        setTimeout(() => { 
-            btn.innerText = originalText; 
-            btn.disabled = false; 
-        }, 2000);
-    }
-}
-
-// 1. 計算並顯示「還差幾公斤」
-function updateDiff() {
-    const current = parseFloat(els.currentW.value);
-    const target = parseFloat(els.targetW.value);
-    const diffEl = document.getElementById("diffVal");
-    const labelEl = document.getElementById("weightDiffDisplay");
-
-    if (current && target) {
-        let diff = (current - target).toFixed(1); // 取小數點後一位
-        
-        if (diff > 0) {
-            diffEl.innerText = diff;
-            labelEl.innerHTML = `距離目標: <span style="color:#c0392b; font-size:15px;">${diff}</span> kg`;
-        } else {
-            labelEl.innerHTML = "🎉 已達成目標！";
-            labelEl.style.color = "#D4AF37";
-        }
-    }
-}
-
-// 2. 記錄體重 (包含按鈕動畫 + 呼叫計算 + 存到雲端)
-async function logWeight() {
-    const w = els.currentW.value;
-    if (!w) return alert("請輸入體重！");
-
-    // 按鈕變色
-    const btn = event.target;
-    const originalText = btn.innerText;
-    btn.innerText = "⏳";
-    btn.disabled = true;
-
-    try {
-        // 呼叫後端寫入紀錄
-        await callApi({ action: "logWeight", weight: w }, false);
-
-        // 更新畫面數據
-        updateDiff(); // 🔥 更新差距
-        calcTotalGoal(); // 更新總熱量目標
-        
-        // 更新顯示時間
-        const now = new Date();
-        const timeStr = (now.getMonth()+1)+'/'+now.getDate()+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
-        document.getElementById("lastWeightLog").innerText = "已存: " + timeStr;
-        document.getElementById("lastWeightLog").style.color = "#D4AF37";
-
-        saveSettings(); // 本地也存一份
-
-    } catch (e) {
-        alert("儲存失敗");
-    } finally {
-        btn.innerText = "✅";
-        setTimeout(() => { 
-            btn.innerText = originalText; 
-            btn.disabled = false; 
-        }, 2000);
-    }
-}
-
 </script>
 
 </body>
