@@ -531,9 +531,13 @@ if (isToday) {
     else displayTime = item.date;
 }
 
-if (isToday || isYesterday) {
+if (isToday) {
     todayTotal += Number(item.calories);
-} else {
+}
+
+// 2. 判斷是否為「更早之前」的資料（用來控制查看更多按鈕）
+// 如果不是今天，也不是昨天，那就是「很久以前」的資料
+if (!isToday && !isYesterday) {
     hasOldData = true;
 }
 
