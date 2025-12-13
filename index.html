@@ -231,10 +231,15 @@ button:hover { background: var(--accent-hover); }
             <input type="number" id="startWeight" value="77" onchange="calcTotalGoal(); saveSettings();">
         </div>
         <div>
+<div style="display:flex; flex-direction:column;">
             <label style="color:var(--accent-hover);">今日 (Current)</label>
-            <input type="number" id="currentWeight" placeholder="今日秤重" onchange="saveSettings();" style="border: 1px solid var(--accent);">
+            <div style="display:flex; gap:8px;"> <input type="number" id="currentWeight" placeholder="輸入" style="margin-bottom:0;">
+                <button onclick="logWeight()" style="width:auto; padding:0 12px; background:var(--accent-hover);">💾</button>
+            </div>
+            <div id="lastWeightLog" style="font-size:10px; color:#aaa; margin-top:4px; text-align:right;">
+                尚未紀錄
+            </div>
         </div>
-        <div>
             <label>目標 (Goal)</label>
             <input type="number" id="targetWeight" value="55" style="font-weight:bold; color:var(--text-main);" onchange="calcTotalGoal(); saveSettings();">
         </div>
@@ -326,6 +331,7 @@ async function init() {
         if(saved.targetW) els.targetW.value = saved.targetW;
         if(saved.tdee) els.tdee.value = saved.tdee;
         calcTotalGoal(); 
+updateDiff();
     }
 
     // B. 去雲端抓最新的
@@ -501,15 +507,49 @@ async function addRecord() {
 }
 
 async function autoSearch() {
-    const name = els.foodName.value;
-    if(!name) return;
-    if(els.foodCal.value) return; 
-    
-    const res = await callApi({ action: "searchFood", item: name });
-    if(res.calories) {
-        els.foodCal.value = res.calories;
-        els.foodCal.style.background = "#fff";
-        setTimeout(()=>els.foodCal.style.background="", 300);
+    const nameInput = els.foodName;
+    const calInput = els.foodCal;
+    const name = nameInput.value.trim();
+
+    // 如果沒有輸入名字，或者熱量欄位已經有數字了，就不自動搜尋
+    if (!name) return;
+    if (calInput.value && calInput.value != "") return;
+
+    // 1. 顯示「查詢中」的狀態
+    const originalPlaceholder = calInput.placeholder;
+    calInput.value = ""; // 清空
+    calInput.placeholder = "🔍 查詢中...";
+    calInput.style.backgroundColor = "#f0f0f0"; // 變灰一點點
+
+    try {
+        // 2. 呼叫後端 API
+        // false 代表不要跳全螢幕的 Loading，只在欄位裡顯示就好
+        const res = await callApi({ action: "searchFood", item: name }, false);
+
+        if (res && res.calories) {
+            // 3. 找到了！填入熱量
+            calInput.value = res.calories;
+            
+            // 閃爍一下黃色背景提醒使用者
+            calInput.style.backgroundColor = "#fff9db"; 
+            calInput.style.transition = "background 0.5s";
+            setTimeout(() => {
+                calInput.style.backgroundColor = ""; 
+            }, 1000);
+            
+            console.log(`已自動帶入 ${name} 的熱量: ${res.calories}`);
+        } else {
+            // 沒找到
+            console.log("資料庫中沒有這個食物");
+        }
+    } catch (e) {
+        console.error("搜尋失敗", e);
+    } finally {
+        // 4. 恢復原狀
+        calInput.placeholder = originalPlaceholder;
+        if (calInput.value === "") {
+             calInput.style.backgroundColor = ""; // 如果沒填入值，背景恢復
+        }
     }
 }
 
@@ -525,6 +565,106 @@ function googleSearch() {
 }
 
 window.onload = init;
+
+async function logWeight() {
+    const w = els.currentW.value;
+    if (!w) return alert("請輸入體重！");
+
+    // 1. 按鈕變色給回饋
+    const btn = event.target; // 抓到按鈕
+    const originalText = btn.innerText;
+    btn.innerText = "⏳";
+    btn.disabled = true;
+
+    try {
+        // 2. 呼叫後端
+        await callApi({
+            action: "logWeight",
+            weight: w
+        }, false); // false 代表不顯示全螢幕 loading，改用按鈕小動畫
+
+        // 3. 更新畫面
+        updateProgress(); // 更新進度條
+        
+        // 顯示紀錄時間
+        const now = new Date();
+        const timeStr = (now.getMonth()+1)+'/'+now.getDate()+' '+now.getHours()+':'+now.getMinutes();
+        document.getElementById("lastWeightLog").innerText = "已存: " + timeStr;
+        document.getElementById("lastWeightLog").style.color = "#D4AF37"; // 金色回饋
+
+        // 順便存到本地快取，避免重整消失
+        saveSettings(); 
+
+    } catch (e) {
+        alert("儲存失敗，請檢查網路");
+    } finally {
+        // 4. 恢復按鈕
+        btn.innerText = "✅";
+        setTimeout(() => { 
+            btn.innerText = originalText; 
+            btn.disabled = false; 
+        }, 2000);
+    }
+}
+
+// 1. 計算並顯示「還差幾公斤」
+function updateDiff() {
+    const current = parseFloat(els.currentW.value);
+    const target = parseFloat(els.targetW.value);
+    const diffEl = document.getElementById("diffVal");
+    const labelEl = document.getElementById("weightDiffDisplay");
+
+    if (current && target) {
+        let diff = (current - target).toFixed(1); // 取小數點後一位
+        
+        if (diff > 0) {
+            diffEl.innerText = diff;
+            labelEl.innerHTML = `距離目標: <span style="color:#c0392b; font-size:15px;">${diff}</span> kg`;
+        } else {
+            labelEl.innerHTML = "🎉 已達成目標！";
+            labelEl.style.color = "#D4AF37";
+        }
+    }
+}
+
+// 2. 記錄體重 (包含按鈕動畫 + 呼叫計算 + 存到雲端)
+async function logWeight() {
+    const w = els.currentW.value;
+    if (!w) return alert("請輸入體重！");
+
+    // 按鈕變色
+    const btn = event.target;
+    const originalText = btn.innerText;
+    btn.innerText = "⏳";
+    btn.disabled = true;
+
+    try {
+        // 呼叫後端寫入紀錄
+        await callApi({ action: "logWeight", weight: w }, false);
+
+        // 更新畫面數據
+        updateDiff(); // 🔥 更新差距
+        calcTotalGoal(); // 更新總熱量目標
+        
+        // 更新顯示時間
+        const now = new Date();
+        const timeStr = (now.getMonth()+1)+'/'+now.getDate()+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+        document.getElementById("lastWeightLog").innerText = "已存: " + timeStr;
+        document.getElementById("lastWeightLog").style.color = "#D4AF37";
+
+        saveSettings(); // 本地也存一份
+
+    } catch (e) {
+        alert("儲存失敗");
+    } finally {
+        btn.innerText = "✅";
+        setTimeout(() => { 
+            btn.innerText = originalText; 
+            btn.disabled = false; 
+        }, 2000);
+    }
+}
+
 </script>
 
 </body>
