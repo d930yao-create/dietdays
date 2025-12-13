@@ -515,22 +515,28 @@ async function loadRecords(showLoading = true) {
         }
 
         data.forEach(item => {
-            const isToday = item.date.startsWith(todayStr);
+const isToday = item.date.startsWith(todayStr);
+const isYesterday = item.date.startsWith(yesterdayStr);
             
-            let displayTime = "";
-            if (isToday) {
-                displayTime = item.date.substring(11, 16);
-            } else {
-                const parts = item.date.split(' ')[0].split('/'); 
-                if(parts.length >= 3) displayTime = parts[1] + '/' + parts[2];
-                else displayTime = item.date;
-            }
+let displayTime = "";
+if (isToday) {
+    displayTime = item.date.substring(11, 16);
+} else if (isYesterday) {
+    const parts = item.date.split(' ')[0].split('/');
+    if (parts.length >= 3) displayTime = parts[1] + '/' + parts[2];
+    else displayTime = item.date;
+} else {
+    const parts = item.date.split(' ')[0].split('/');
+    if (parts.length >= 3) displayTime = parts[1] + '/' + parts[2];
+    else displayTime = item.date;
+}
 
-            if (isToday) {
-                todayTotal += Number(item.calories);
-            } else {
-                hasOldData = true;
-            }
+if (isToday || isYesterday) {
+    todayTotal += Number(item.calories);
+} else {
+    hasOldData = true;
+}
+
 
             const html = `
                 <div class="record-item ${isToday ? 'today-highlight' : ''}">
@@ -752,6 +758,17 @@ async function deleteRecord(id) {
     await callApi({ action: "deleteRecord", id: id });
     loadRecords();
 }
+
+
+function getDateStr(offset = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+}
+
+const todayStr = getDateStr(0);
+const yesterdayStr = getDateStr(-1);
+
 
 function googleSearch() {
     const val = els.foodName.value;
