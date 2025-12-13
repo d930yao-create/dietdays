@@ -350,28 +350,35 @@ const els = {
     loading: document.getElementById('loading')
 };
 
-// 1. 初始化
+// 1. 初始化 (極速版：畫面秒開，背景同步)
 async function init() {
-    // A. 先讀本地快取
+    // A. 讀取本地快取 -> 立即渲染畫面！
     const saved = JSON.parse(localStorage.getItem('bowbow_settings'));
     if (saved) {
         if(saved.startW) els.startW.value = saved.startW;
         if(saved.currentW) els.currentW.value = saved.currentW;
         if(saved.targetW) els.targetW.value = saved.targetW;
         if(saved.tdee) els.tdee.value = saved.tdee;
+        
+        // 馬上計算並顯示進度 (使用者這時候就能看到金色的條條了！)
         calcTotalGoal(); 
-        updateDiff(); // 初始化時也要算一下差距
+        updateDiff(); 
     }
 
-    // B. 去雲端抓最新的
-    try {
-        const cloudSettings = await callApi({ action: "getSettings" });
+    // 🔥 關鍵：不管雲端資料回來了沒，先強制關閉 Loading 遮罩
+    // 這樣使用者就可以開始操作，不會覺得「卡住」
+    els.loading.style.display = "none";
+
+    // B. 背景去雲端抓最新的設定 (安靜模式：不顯示 Loading)
+    // 這裡我們用 Promise 的方式呼叫，不使用 await 阻擋
+    callApi({ action: "getSettings" }, false).then(cloudSettings => {
         if (cloudSettings && cloudSettings.start) {
             els.startW.value = cloudSettings.start;
             els.currentW.value = cloudSettings.current;
             els.targetW.value = cloudSettings.target;
             els.tdee.value = cloudSettings.tdee;
             
+            // 更新本地快取
             localStorage.setItem('bowbow_settings', JSON.stringify({
                 startW: cloudSettings.start,
                 currentW: cloudSettings.current,
@@ -379,29 +386,47 @@ async function init() {
                 tdee: cloudSettings.tdee
             }));
             
+            // 畫面若有變動再更新一次
             calcTotalGoal(); 
-            updateDiff(); // 雲端資料回來後再算一次
-            console.log("已從雲端同步設定 ☁️");
+            updateDiff(); 
+            console.log("設定同步完成 ☁️");
         }
-    } catch(e) {
-        console.log("雲端設定讀取失敗");
-    }
+    });
 
-    loadRecords(); 
+    // C. 背景載入歷史紀錄 (安靜模式：傳入 false)
+    // 這樣列表會在 3-5 秒後自動跳出來，但不會擋住你操作其他東西
+    loadRecords(false); 
 }
 
-// 2. 計算總目標熱量
+// 2. 計算總目標 & 即時更新進度條 (體重優先版)
 function calcTotalGoal() {
-    const start = parseFloat(els.startW.value);
-    const target = parseFloat(els.targetW.value);
+    const start = parseFloat(els.startW.value) || 77;
+    const current = parseFloat(els.currentW.value) || start; // 如果沒填今日，預設為初始
+    const target = parseFloat(els.targetW.value) || 55;
     
-    // 公式：公斤差 * 7700
-    let diff = start - target;
-    if (diff < 0) diff = 0; 
-    
-    const totalCalNeeded = Math.round(diff * 7700);
+    // A. 總共需要減掉的體重 (初始 - 目標)
+    let totalDiff = start - target;
+    if (totalDiff <= 0) totalDiff = 1; // 避免除以 0
+
+    // B. 已經減掉的體重 (初始 - 今日)
+    let lostDiff = start - current;
+    if (lostDiff < 0) lostDiff = 0; // 避免變胖時變成負數
+
+    // C. 計算熱量數值
+    const totalCalNeeded = Math.round(totalDiff * 7700);
+    const currentSavedCal = Math.round(lostDiff * 7700); // 直接用體重換算已存熱量
+
+    // D. 更新介面文字
     els.totalGoalCal.textContent = totalCalNeeded.toLocaleString();
-    
+    els.savedCal.textContent = currentSavedCal.toLocaleString();
+
+    // E. 更新進度條 (直接在這裡算，不用等後端)
+    let percent = (lostDiff / totalDiff) * 100;
+    percent = Math.min(100, Math.max(0, percent)); // 限制在 0~100%
+
+    els.longTermProgress.style.width = percent + "%";
+    els.longTermPercent.textContent = percent.toFixed(1) + "% 完成";
+
     return totalCalNeeded;
 }
 
@@ -475,10 +500,12 @@ return await res.json();
     }
 }
 
-// 6. 載入紀錄 (優化版：自動分類今日與舊紀錄)
-async function loadRecords() {
-    // 這裡可以偷改後端數量：如果你想抓更多，可以去 Code.gs 把 49 改成 99
-    const data = await callApi({ action: "getRecords" });
+// 6. 載入紀錄 (終極版：背景載入 + 歷史紀錄分類)
+async function loadRecords(showLoading = true) {
+    // showLoading = true: 顯示全螢幕遮罩 (例如刪除資料後)
+    // showLoading = false: 背景執行，不打擾使用者 (例如剛打開網頁時)
+    
+    const data = await callApi({ action: "getRecords" }, showLoading);
     
     let todayTotal = 0;
     const todayStart = new Date();
@@ -486,13 +513,14 @@ async function loadRecords() {
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999); 
     
-    // 清空兩個清單
-    const todayListEl = document.getElementById("recordList");
-    const oldListEl = document.getElementById("oldRecordList");
-    const toggleBtn = document.getElementById("historyToggleBtn");
+    // 取得 HTML 元素
+    const todayListEl = document.getElementById("recordList"); // 今天的清單
+    const oldListEl = document.getElementById("oldRecordList"); // 舊的清單 (隱藏區)
+    const toggleBtn = document.getElementById("historyToggleBtn"); // 展開按鈕
     
+    // 清空清單
     todayListEl.innerHTML = "";
-    oldListEl.innerHTML = "";
+    if(oldListEl) oldListEl.innerHTML = ""; 
     
     let hasOldData = false;
 
@@ -504,23 +532,23 @@ async function loadRecords() {
 
         data.forEach(item => {
             const itemDate = new Date(item.date);
-            // 判斷是否為今天
             const isToday = (itemDate >= todayStart && itemDate <= todayEnd);
             
-            // 計算熱量
+            // 計算熱量：只算今天的
             if (isToday) {
                 todayTotal += Number(item.calories);
             } else {
                 hasOldData = true; // 標記有舊資料
             }
             
-            // 處理日期顯示
+            // 處理日期顯示文字
             let dateDisplay = item.date;
             try {
-                // 如果是今天，只顯示時間；如果是舊的，顯示日期
                 if (isToday) {
+                     // 今天的只顯示時間 (例如 12:30)
                      dateDisplay = item.date.includes('T') ? item.date.split('T')[1].substring(0,5) : "Today";
                 } else {
+                     // 舊的顯示日期 (例如 12/13)
                      const d = new Date(item.date);
                      dateDisplay = (d.getMonth()+1) + "/" + d.getDate();
                 }
@@ -541,48 +569,40 @@ async function loadRecords() {
                     </div>
                 </div>`;
 
-            // 🔥 分流：今天的放上面，舊的放下面
+            // 🔥 分類：今天的放上面，舊的放下面
             if (isToday) {
                 todayListEl.innerHTML += html;
             } else {
-                oldListEl.innerHTML += html;
+                // 如果你有加舊紀錄區塊，就塞進去
+                if(oldListEl) oldListEl.innerHTML += html;
             }
         });
     }
     
-    // 決定是否顯示「查看更多」按鈕
-    if (hasOldData) {
-        toggleBtn.style.display = "block";
-        toggleBtn.innerText = `⬇️ 查看近期紀錄 (${oldListEl.children.length}筆)`;
-    } else {
-        toggleBtn.style.display = "none";
+    // 控制「查看更多」按鈕的顯示
+    if (toggleBtn) {
+        if (hasOldData) {
+            toggleBtn.style.display = "block";
+            // 重置按鈕文字，避免卡在「收起」狀態
+            toggleBtn.innerText = `⬇️ 查看近期紀錄`;
+            if(oldListEl) oldListEl.style.display = "none"; // 預設隱藏
+        } else {
+            toggleBtn.style.display = "none";
+        }
     }
 
-    // 更新數值
+    // 更新今日攝取數字
     els.todayEaten.value = todayTotal;
     updateDailyAndSave(false); 
 
+    // 背景計算長期儲蓄 (永遠不顯示 loading)
     const stats = await callApi({ 
         action: "calcSavings", 
         tdee: els.tdee.value 
-    });
+    }, false); 
     
     if (stats && stats.totalSaved !== undefined) {
         updateLongTermProgress(stats.totalSaved);
-    }
-}
-
-// 🔥 新增：切換歷史紀錄顯示/隱藏
-function toggleHistory() {
-    const oldList = document.getElementById("oldRecordList");
-    const btn = document.getElementById("historyToggleBtn");
-    
-    if (oldList.style.display === "none") {
-        oldList.style.display = "block";
-        btn.innerText = "⬆️ 收起舊紀錄";
-    } else {
-        oldList.style.display = "none";
-        btn.innerText = `⬇️ 查看近期紀錄 (${oldList.children.length}筆)`;
     }
 }
 
@@ -599,21 +619,18 @@ function updateDailyAndSave(shouldReload = true) {
 }
 
 // 8. 更新長期進度條
-function updateLongTermProgress(savedAmount) {
-    const totalGoal = parseInt(els.totalGoalCal.textContent.replace(/,/g, '')) || 1;
-    if (!totalGoal || totalGoal <= 0) {
-        els.longTermProgress.style.width = "0%";
-        els.longTermPercent.textContent = "尚未設定目標";
-        els.savedCal.textContent = savedAmount.toLocaleString();
-        return;
+function updateLongTermProgress(backendSaved) {
+    // 如果使用者已經輸入了「今日體重」，我們就以體重為準，忽略後端的飲食計算
+    if (els.currentW.value) {
+        calcTotalGoal(); // 重新觸發一次體重計算即可
+    } else {
+        // 只有當「沒有」輸入今日體重時，才勉強用飲食紀錄來顯示
+        const totalGoal = parseInt(els.totalGoalCal.textContent.replace(/,/g, '')) || 1;
+        els.savedCal.textContent = backendSaved.toLocaleString();
+        let percent = (backendSaved / totalGoal) * 100;
+        els.longTermProgress.style.width = percent + "%";
+        els.longTermPercent.textContent = percent.toFixed(1) + "% 完成";
     }
-    els.savedCal.textContent = savedAmount.toLocaleString();
-    
-    let percent = (savedAmount / totalGoal) * 100;
-    percent = Math.min(100, Math.max(0, percent)); 
-    
-    els.longTermProgress.style.width = percent + "%";
-    els.longTermPercent.textContent = percent.toFixed(1) + "% 完成";
 }
 
 // 9. 記錄體重按鈕功能 (保留這個新的！)
