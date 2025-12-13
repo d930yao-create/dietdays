@@ -350,27 +350,23 @@ const els = {
     loading: document.getElementById('loading')
 };
 
-// 1. 初始化 (極速版：畫面秒開，背景同步)
+// 1. 初始化
 async function init() {
-    // A. 讀取本地快取 -> 立即渲染畫面！
+    // A. 讀取本地快取
     const saved = JSON.parse(localStorage.getItem('bowbow_settings'));
     if (saved) {
         if(saved.startW) els.startW.value = saved.startW;
         if(saved.currentW) els.currentW.value = saved.currentW;
         if(saved.targetW) els.targetW.value = saved.targetW;
         if(saved.tdee) els.tdee.value = saved.tdee;
-        
-        // 馬上計算並顯示進度 (使用者這時候就能看到金色的條條了！)
         calcTotalGoal(); 
         updateDiff(); 
     }
 
-    // 🔥 關鍵：不管雲端資料回來了沒，先強制關閉 Loading 遮罩
-    // 這樣使用者就可以開始操作，不會覺得「卡住」
+    // 🔥 關鍵：先強制關閉 Loading
     els.loading.style.display = "none";
 
-    // B. 背景去雲端抓最新的設定 (安靜模式：不顯示 Loading)
-    // 這裡我們用 Promise 的方式呼叫，不使用 await 阻擋
+    // B. 背景去雲端抓最新的設定
     callApi({ action: "getSettings" }, false).then(cloudSettings => {
         if (cloudSettings && cloudSettings.start) {
             els.startW.value = cloudSettings.start;
@@ -378,7 +374,6 @@ async function init() {
             els.targetW.value = cloudSettings.target;
             els.tdee.value = cloudSettings.tdee;
             
-            // 更新本地快取
             localStorage.setItem('bowbow_settings', JSON.stringify({
                 startW: cloudSettings.start,
                 currentW: cloudSettings.current,
@@ -386,43 +381,36 @@ async function init() {
                 tdee: cloudSettings.tdee
             }));
             
-            // 畫面若有變動再更新一次
             calcTotalGoal(); 
             updateDiff(); 
             console.log("設定同步完成 ☁️");
         }
     });
 
-    // C. 背景載入歷史紀錄 (安靜模式：傳入 false)
-    // 這樣列表會在 3-5 秒後自動跳出來，但不會擋住你操作其他東西
+    // C. 背景載入歷史紀錄
     loadRecords(false); 
 }
 
-// 2. 計算總目標 & 即時更新進度條 (體重優先版)
+// 2. 計算總目標 & 即時更新進度條
 function calcTotalGoal() {
     const start = parseFloat(els.startW.value) || 77;
-    const current = parseFloat(els.currentW.value) || start; // 如果沒填今日，預設為初始
+    const current = parseFloat(els.currentW.value) || start; 
     const target = parseFloat(els.targetW.value) || 55;
     
-    // A. 總共需要減掉的體重 (初始 - 目標)
     let totalDiff = start - target;
-    if (totalDiff <= 0) totalDiff = 1; // 避免除以 0
+    if (totalDiff <= 0) totalDiff = 1;
 
-    // B. 已經減掉的體重 (初始 - 今日)
     let lostDiff = start - current;
-    if (lostDiff < 0) lostDiff = 0; // 避免變胖時變成負數
+    if (lostDiff < 0) lostDiff = 0; 
 
-    // C. 計算熱量數值
     const totalCalNeeded = Math.round(totalDiff * 7700);
-    const currentSavedCal = Math.round(lostDiff * 7700); // 直接用體重換算已存熱量
+    const currentSavedCal = Math.round(lostDiff * 7700); 
 
-    // D. 更新介面文字
     els.totalGoalCal.textContent = totalCalNeeded.toLocaleString();
     els.savedCal.textContent = currentSavedCal.toLocaleString();
 
-    // E. 更新進度條 (直接在這裡算，不用等後端)
     let percent = (lostDiff / totalDiff) * 100;
-    percent = Math.min(100, Math.max(0, percent)); // 限制在 0~100%
+    percent = Math.min(100, Math.max(0, percent)); 
 
     els.longTermProgress.style.width = percent + "%";
     els.longTermPercent.textContent = percent.toFixed(1) + "% 完成";
@@ -430,16 +418,15 @@ function calcTotalGoal() {
     return totalCalNeeded;
 }
 
-// 3. 計算並顯示「還差幾公斤」 (新功能)
+// 3. 計算並顯示「還差幾公斤」
 function updateDiff() {
     const current = parseFloat(els.currentW.value);
     const target = parseFloat(els.targetW.value);
     const diffEl = document.getElementById("diffVal");
     const labelEl = document.getElementById("weightDiffDisplay");
 
-    // 只有當元素存在時才更新，避免報錯
     if (current && target && diffEl && labelEl) {
-        let diff = (current - target).toFixed(1); // 取小數點後一位
+        let diff = (current - target).toFixed(1); 
         
         if (diff > 0) {
             diffEl.innerText = diff;
@@ -476,22 +463,22 @@ function saveSettings() {
     }, false);
 }
 
-// 5. API 呼叫 (優化版)
+// 5. API 呼叫
 async function callApi(payload, showLoading = true) {
     if (showLoading) els.loading.style.display = "flex";
     
     try {
-const controller = new AbortController();
-setTimeout(() => controller.abort(), 8000);
+        const controller = new AbortController();
+        setTimeout(() => controller.abort(), 8000);
 
-const res = await fetch(API_URL, {
-  method: "POST",
-  body: JSON.stringify(payload),
-  signal: controller.signal
-});
+        const res = await fetch(API_URL, {
+            method: "POST",
+            body: JSON.stringify(payload),
+            signal: controller.signal
+        });
 
-if (!res.ok) throw new Error("API Error");
-return await res.json();
+        if (!res.ok) throw new Error("API Error");
+        return await res.json();
     } catch (e) {
         console.error(e);
         if (showLoading) alert("連線錯誤"); 
@@ -500,19 +487,17 @@ return await res.json();
     }
 }
 
-// 6. 載入紀錄 (終極版：背景載入 + 歷史紀錄分類)
-修改 loadRecords：完全不進行時區運算，只比對文字
+// 6. 載入紀錄
 async function loadRecords(showLoading = true) {
     const data = await callApi({ action: "getRecords" }, showLoading);
     
     let todayTotal = 0;
     
-    // 取得「今天」的字串，格式：2025/12/13
     const now = new Date();
     const yyyy = now.getFullYear();
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     const dd = String(now.getDate()).padStart(2, '0');
-    const todayStr = `${yyyy}/${mm}/${dd}`; // 例如 "2025/12/13"
+    const todayStr = `${yyyy}/${mm}/${dd}`; 
 
     const todayListEl = document.getElementById("recordList"); 
     const oldListEl = document.getElementById("oldRecordList"); 
@@ -529,19 +514,13 @@ async function loadRecords(showLoading = true) {
         }
 
         data.forEach(item => {
-            // item.date 後端傳來的是 "2025/12/13 14:30" 這樣的純文字
-            // 我們直接檢查它是否以 "2025/12/13" 開頭，絕不出錯
             const isToday = item.date.startsWith(todayStr);
             
             let displayTime = "";
             if (isToday) {
-                // 如果是今天，切下後面時間的部分 (從第 11 個字元開始抓)
-                // "2025/12/13 14:30" -> "14:30"
                 displayTime = item.date.substring(11, 16);
             } else {
-                // 如果是舊的，切下日期部分
-                // "2025/12/13 14:30" -> "12/13"
-                const parts = item.date.split(' ')[0].split('/'); // ["2025","12","13"]
+                const parts = item.date.split(' ')[0].split('/'); 
                 if(parts.length >= 3) displayTime = parts[1] + '/' + parts[2];
                 else displayTime = item.date;
             }
@@ -572,10 +551,9 @@ async function loadRecords(showLoading = true) {
         });
     }
     
-if (toggleBtn) {
+    if (toggleBtn) {
         if (hasOldData) {
             toggleBtn.style.display = "block";
-            // 保持按鈕狀態邏輯
             if(oldListEl.style.display === 'block') {
                  toggleBtn.innerText = "⬆️ 收起紀錄";
             } else {
@@ -593,6 +571,7 @@ if (toggleBtn) {
     if (stats && stats.totalSaved !== undefined) {
         updateLongTermProgress(stats.totalSaved);
     }
+} // 🔥 我把這裡缺少的括號補上了！
 
 // 7. 更新每日赤字顯示
 function updateDailyAndSave(shouldReload = true) {
@@ -608,11 +587,9 @@ function updateDailyAndSave(shouldReload = true) {
 
 // 8. 更新長期進度條
 function updateLongTermProgress(backendSaved) {
-    // 如果使用者已經輸入了「今日體重」，我們就以體重為準，忽略後端的飲食計算
     if (els.currentW.value) {
-        calcTotalGoal(); // 重新觸發一次體重計算即可
+        calcTotalGoal(); 
     } else {
-        // 只有當「沒有」輸入今日體重時，才勉強用飲食紀錄來顯示
         const totalGoal = parseInt(els.totalGoalCal.textContent.replace(/,/g, '')) || 1;
         els.savedCal.textContent = backendSaved.toLocaleString();
         let percent = (backendSaved / totalGoal) * 100;
@@ -621,7 +598,7 @@ function updateLongTermProgress(backendSaved) {
     }
 }
 
-// 9. 記錄體重按鈕功能 (保留這個新的！)
+// 9. 記錄體重按鈕功能
 async function logWeight(btn) {
     const w = els.currentW.value;
     if (!w) return alert("請輸入體重！");
@@ -633,7 +610,7 @@ async function logWeight(btn) {
     try {
         await callApi({ action: "logWeight", weight: w }, false);
 
-        updateDiff(); // 🔥 更新差距文字
+        updateDiff(); 
         calcTotalGoal(); 
         
         const now = new Date();
@@ -660,7 +637,7 @@ async function addRecord() {
     const cal = els.foodCal.value;
     if(!name || !cal) return alert("請輸入完整");
     
-    // 🔥 新增：抓取手機當下時間
+    // 抓取手機當下時間
     const now = new Date();
     // 格式化為：2025/12/13 14:30
     const dateStr = now.getFullYear() + '/' + 
@@ -669,7 +646,6 @@ async function addRecord() {
                    now.getHours().toString().padStart(2, '0') + ':' + 
                    now.getMinutes().toString().padStart(2, '0');
 
-    // 把 dateStr 也傳給 Google Sheet
     await callApi({ action: "addRecord", item: name, calories: cal, date: dateStr });
     
     els.foodName.value = ""; els.foodCal.value = "";
@@ -680,10 +656,9 @@ async function addRecord() {
 async function autoSearch() {
     const nameInput = els.foodName;
     const calInput = els.foodCal;
-    const name = nameInput.value.trim(); // 去除前後空白
+    const name = nameInput.value.trim(); 
 
     if (!name) return;
-    // 如果已經有數字，就不重新搜尋，避免蓋掉
     if (calInput.value && calInput.value != "") return;
 
     const originalPlaceholder = calInput.placeholder;
@@ -694,7 +669,6 @@ async function autoSearch() {
 
         if (res && res.calories) {
             calInput.value = res.calories;
-            // 閃爍黃色提醒使用者找到了
             calInput.style.backgroundColor = "#fff9db"; 
             setTimeout(() => { calInput.style.backgroundColor = ""; }, 1000);
         }
@@ -716,7 +690,6 @@ function googleSearch() {
     if(val) window.open(`https://www.google.com/search?q=${val}+熱量`);
 }
 
-// 🔥 新增：這是原本漏掉的開關功能
 function toggleHistory() {
     const oldList = document.getElementById("oldRecordList");
     const btn = document.getElementById("historyToggleBtn");
@@ -726,7 +699,6 @@ function toggleHistory() {
     if (oldList.style.display === "none") {
         oldList.style.display = "block";
         btn.innerText = "⬆️ 收起紀錄";
-        // 點開時順便滑動到底部，體驗比較好
         oldList.scrollTop = oldList.scrollHeight;
     } else {
         oldList.style.display = "none";
