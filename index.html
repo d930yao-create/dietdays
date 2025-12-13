@@ -302,12 +302,29 @@ button:hover { background: var(--accent-hover); }
         <button onclick="googleSearch()" style="background:transparent; color:#999; border:1px solid #eee; margin-top:10px;">🔍 Google Check</button>
     </div>
 
-    <div class="card">
+<div class="card">
         <h2>History</h2>
         <div class="record-list" id="recordList">Loading...</div>
-    </div>
+        
+        <div id="historyToggleBtn" onclick="toggleHistory()" style="
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-light);
+            padding: 10px 0;
+            cursor: pointer;
+            border-top: 1px dashed #EBE5DE;
+            margin-top: 10px;
+            display: none; /* 沒資料時隱藏 */
+        ">
+            ⬇️ 查看近期紀錄 (Recent)
+        </div>
 
-</div>
+        <div class="record-list" id="oldRecordList" style="
+            display: none; 
+            opacity: 0.7; 
+            max-height: 200px; /* 限制高度讓它可滑動 */
+        "></div>
+    </div>
 
 
 <script>
@@ -451,8 +468,9 @@ async function callApi(payload, showLoading = true) {
     }
 }
 
-// 6. 載入紀錄
+// 6. 載入紀錄 (優化版：自動分類今日與舊紀錄)
 async function loadRecords() {
+    // 這裡可以偷改後端數量：如果你想抓更多，可以去 Code.gs 把 49 改成 99
     const data = await callApi({ action: "getRecords" });
     
     let todayTotal = 0;
@@ -461,24 +479,51 @@ async function loadRecords() {
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999); 
     
-    els.recordList.innerHTML = "";
+    // 清空兩個清單
+    const todayListEl = document.getElementById("recordList");
+    const oldListEl = document.getElementById("oldRecordList");
+    const toggleBtn = document.getElementById("historyToggleBtn");
+    
+    todayListEl.innerHTML = "";
+    oldListEl.innerHTML = "";
+    
+    let hasOldData = false;
+
     if (Array.isArray(data)) {
+        // 如果完全沒資料
+        if (data.length === 0) {
+             todayListEl.innerHTML = "<div style='text-align:center; color:#ccc; padding:20px;'>尚無紀錄</div>";
+        }
+
         data.forEach(item => {
             const itemDate = new Date(item.date);
-
-            if (itemDate >= todayStart && itemDate <= todayEnd) {
+            // 判斷是否為今天
+            const isToday = (itemDate >= todayStart && itemDate <= todayEnd);
+            
+            // 計算熱量
+            if (isToday) {
                 todayTotal += Number(item.calories);
+            } else {
+                hasOldData = true; // 標記有舊資料
             }
             
+            // 處理日期顯示
             let dateDisplay = item.date;
             try {
-                dateDisplay = new Date(item.date).toLocaleDateString();
+                // 如果是今天，只顯示時間；如果是舊的，顯示日期
+                if (isToday) {
+                     dateDisplay = item.date.includes('T') ? item.date.split('T')[1].substring(0,5) : "Today";
+                } else {
+                     const d = new Date(item.date);
+                     dateDisplay = (d.getMonth()+1) + "/" + d.getDate();
+                }
             } catch(e) {
                 dateDisplay = item.date.substring(0, 10);
             }
 
-            els.recordList.innerHTML += `
-                <div class="record-item">
+            // 產生 HTML
+            const html = `
+                <div class="record-item ${isToday ? 'today-highlight' : ''}">
                     <div>
                         <div style="font-weight:500;">${item.item}</div>
                         <div style="font-size:11px; color:#ccc;">${dateDisplay}</div>
@@ -488,9 +533,25 @@ async function loadRecords() {
                         <button class="delete-btn" onclick="deleteRecord('${item.id}')">×</button>
                     </div>
                 </div>`;
+
+            // 🔥 分流：今天的放上面，舊的放下面
+            if (isToday) {
+                todayListEl.innerHTML += html;
+            } else {
+                oldListEl.innerHTML += html;
+            }
         });
     }
     
+    // 決定是否顯示「查看更多」按鈕
+    if (hasOldData) {
+        toggleBtn.style.display = "block";
+        toggleBtn.innerText = `⬇️ 查看近期紀錄 (${oldListEl.children.length}筆)`;
+    } else {
+        toggleBtn.style.display = "none";
+    }
+
+    // 更新數值
     els.todayEaten.value = todayTotal;
     updateDailyAndSave(false); 
 
@@ -501,6 +562,20 @@ async function loadRecords() {
     
     if (stats && stats.totalSaved !== undefined) {
         updateLongTermProgress(stats.totalSaved);
+    }
+}
+
+// 🔥 新增：切換歷史紀錄顯示/隱藏
+function toggleHistory() {
+    const oldList = document.getElementById("oldRecordList");
+    const btn = document.getElementById("historyToggleBtn");
+    
+    if (oldList.style.display === "none") {
+        oldList.style.display = "block";
+        btn.innerText = "⬆️ 收起舊紀錄";
+    } else {
+        oldList.style.display = "none";
+        btn.innerText = `⬇️ 查看近期紀錄 (${oldList.children.length}筆)`;
     }
 }
 
