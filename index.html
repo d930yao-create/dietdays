@@ -657,28 +657,95 @@ async function addRecord() {
 async function autoSearch() {
     const nameInput = els.foodName;
     const calInput = els.foodCal;
-    const name = nameInput.value.trim(); 
+    const name = nameInput.value.trim();
 
     if (!name) return;
-    if (calInput.value && calInput.value != "") return;
+    if (calInput.value && calInput.value !== "") return;
 
     const originalPlaceholder = calInput.placeholder;
-    calInput.placeholder = "🔍...";
-    
+    calInput.placeholder = "🔍 搜尋中...";
+
+    hideFoodOptions(); // 🔥 每次搜尋先關掉選單
+
     try {
         const res = await callApi({ action: "searchFood", item: name }, false);
 
-        if (res && res.calories) {
-            calInput.value = res.calories;
-            calInput.style.backgroundColor = "#fff9db"; 
-            setTimeout(() => { calInput.style.backgroundColor = ""; }, 1000);
+        // ✅ 只有一筆 → 直接填
+        if (res?.matches && res.matches.length === 1) {
+            calInput.value = res.matches[0].calories;
+            flashCalInput(calInput);
         }
+
+        // ✅ 多筆 → 顯示選單（最多 5 筆，後端已處理）
+        else if (res?.matches && res.matches.length > 1) {
+            showFoodOptions(res.matches);
+        }
+
+        // ❌ 沒結果 → 不動
     } catch (e) {
         console.error("搜尋失敗", e);
     } finally {
         calInput.placeholder = originalPlaceholder;
     }
 }
+
+function flashCalInput(input) {
+    input.style.backgroundColor = "#fff9db";
+    setTimeout(() => {
+        input.style.backgroundColor = "";
+    }, 1000);
+}
+
+function showFoodOptions(list) {
+    let menu = document.getElementById("foodOptions");
+
+    // 如果頁面上還沒有，就動態建立
+    if (!menu) {
+        menu = document.createElement("div");
+        menu.id = "foodOptions";
+        menu.style.position = "absolute";
+        menu.style.background = "#fff";
+        menu.style.border = "1px solid #ddd";
+        menu.style.borderRadius = "8px";
+        menu.style.boxShadow = "0 4px 10px rgba(0,0,0,0.1)";
+        menu.style.zIndex = "999";
+        menu.style.marginTop = "4px";
+        menu.style.width = els.foodName.offsetWidth + "px";
+        els.foodName.parentNode.appendChild(menu);
+    }
+
+    menu.innerHTML = "";
+menu.style.left = els.foodName.offsetLeft + "px";
+menu.style.top = els.foodName.offsetTop + els.foodName.offsetHeight + "px";
+    menu.style.display = "block";
+
+    list.forEach(item => {
+        const btn = document.createElement("div");
+        btn.textContent = `${item.item}（${item.calories} kcal）`;
+        btn.style.padding = "8px 12px";
+        btn.style.cursor = "pointer";
+        btn.style.borderBottom = "1px solid #f0f0f0";
+
+        btn.onmouseenter = () => btn.style.background = "#f8f9fa";
+        btn.onmouseleave = () => btn.style.background = "#fff";
+
+        btn.onclick = () => {
+            els.foodName.value = item.item;
+            els.foodCal.value = item.calories;
+            hideFoodOptions();
+            flashCalInput(els.foodCal);
+        };
+
+        menu.appendChild(btn);
+    });
+}
+
+function hideFoodOptions() {
+    const menu = document.getElementById("foodOptions");
+    if (menu) menu.style.display = "none";
+}
+
+// 刪除紀錄
 
 async function deleteRecord(id) {
     if(!confirm("刪除此筆?")) return;
