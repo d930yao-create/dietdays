@@ -501,14 +501,18 @@ return await res.json();
 }
 
 // 6. 載入紀錄 (終極版：背景載入 + 歷史紀錄分類)
+修改 loadRecords：完全不進行時區運算，只比對文字
 async function loadRecords(showLoading = true) {
     const data = await callApi({ action: "getRecords" }, showLoading);
     
     let todayTotal = 0;
     
-    // 🔥 聰明日期判斷：只比對「年、月、日」
+    // 取得「今天」的字串，格式：2025/12/13
     const now = new Date();
-    const todayStr = now.getFullYear() + '/' + (now.getMonth()+1) + '/' + now.getDate();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}/${mm}/${dd}`; // 例如 "2025/12/13"
 
     const todayListEl = document.getElementById("recordList"); 
     const oldListEl = document.getElementById("oldRecordList"); 
@@ -524,38 +528,24 @@ async function loadRecords(showLoading = true) {
              todayListEl.innerHTML = "<div style='text-align:center; color:#ccc; padding:20px;'>尚無紀錄</div>";
         }
 
-        // 為了讓新紀錄排在最上面，我們把資料反轉一下 (Optional)
-        // data.reverse(); 
-
         data.forEach(item => {
-            // 嘗試解析日期
-            let isToday = false;
-            let displayDate = item.date;
-
-            try {
-                // 把 sheet 裡的日期字串變成 Date 物件來比對
-                let itemDate = new Date(item.date);
-                // 檢查是否有效日期
-                if (!isNaN(itemDate.getTime())) {
-                    let itemDateStr = itemDate.getFullYear() + '/' + (itemDate.getMonth()+1) + '/' + itemDate.getDate();
-                    isToday = (itemDateStr === todayStr);
-                    
-                    // 顯示優化
-                    if (isToday) {
-                        // 如果是今天，只顯示時間 HH:mm
-                        displayDate = itemDate.getHours().toString().padStart(2,'0') + ':' + itemDate.getMinutes().toString().padStart(2,'0');
-                    } else {
-                        // 如果是舊紀錄，顯示 MM/DD
-                        displayDate = (itemDate.getMonth()+1) + '/' + itemDate.getDate();
-                    }
-                } else {
-                    // 如果日期格式很亂，就直接用字串比對
-                    isToday = item.date.includes(todayStr) || item.date.includes(todayStr.replaceAll('/', '-'));
-                }
-            } catch(e) {
-                console.log("日期解析失敗", item.date);
+            // item.date 後端傳來的是 "2025/12/13 14:30" 這樣的純文字
+            // 我們直接檢查它是否以 "2025/12/13" 開頭，絕不出錯
+            const isToday = item.date.startsWith(todayStr);
+            
+            let displayTime = "";
+            if (isToday) {
+                // 如果是今天，切下後面時間的部分 (從第 11 個字元開始抓)
+                // "2025/12/13 14:30" -> "14:30"
+                displayTime = item.date.substring(11, 16);
+            } else {
+                // 如果是舊的，切下日期部分
+                // "2025/12/13 14:30" -> "12/13"
+                const parts = item.date.split(' ')[0].split('/'); // ["2025","12","13"]
+                if(parts.length >= 3) displayTime = parts[1] + '/' + parts[2];
+                else displayTime = item.date;
             }
-             
+
             if (isToday) {
                 todayTotal += Number(item.calories);
             } else {
@@ -566,7 +556,7 @@ async function loadRecords(showLoading = true) {
                 <div class="record-item ${isToday ? 'today-highlight' : ''}">
                     <div>
                         <div style="font-weight:500;">${item.item}</div>
-                        <div style="font-size:11px; color:#ccc;">${displayDate}</div>
+                        <div style="font-size:11px; color:#ccc;">${displayTime}</div>
                     </div>
                     <div style="display:flex; align-items:center;">
                         <span style="color:var(--accent-hover); font-weight:500; margin-right:5px;">${item.calories}</span>
@@ -582,10 +572,10 @@ async function loadRecords(showLoading = true) {
         });
     }
     
-    if (toggleBtn) {
+if (toggleBtn) {
         if (hasOldData) {
             toggleBtn.style.display = "block";
-            // 保持原本的開關狀態，不要每次整理都把人家關起來
+            // 保持按鈕狀態邏輯
             if(oldListEl.style.display === 'block') {
                  toggleBtn.innerText = "⬆️ 收起紀錄";
             } else {
@@ -603,7 +593,6 @@ async function loadRecords(showLoading = true) {
     if (stats && stats.totalSaved !== undefined) {
         updateLongTermProgress(stats.totalSaved);
     }
-}
 
 // 7. 更新每日赤字顯示
 function updateDailyAndSave(shouldReload = true) {
@@ -687,37 +676,32 @@ async function addRecord() {
     await loadRecords(false);
 }
 
+//  autoSearch
 async function autoSearch() {
     const nameInput = els.foodName;
     const calInput = els.foodCal;
-    const name = nameInput.value.trim();
+    const name = nameInput.value.trim(); // 去除前後空白
 
     if (!name) return;
+    // 如果已經有數字，就不重新搜尋，避免蓋掉
     if (calInput.value && calInput.value != "") return;
 
     const originalPlaceholder = calInput.placeholder;
-    calInput.value = ""; 
-    calInput.placeholder = "🔍 查詢中...";
-    calInput.style.backgroundColor = "#f0f0f0"; 
-
+    calInput.placeholder = "🔍...";
+    
     try {
         const res = await callApi({ action: "searchFood", item: name }, false);
 
         if (res && res.calories) {
             calInput.value = res.calories;
+            // 閃爍黃色提醒使用者找到了
             calInput.style.backgroundColor = "#fff9db"; 
-            calInput.style.transition = "background 0.5s";
-            setTimeout(() => {
-                calInput.style.backgroundColor = ""; 
-            }, 1000);
+            setTimeout(() => { calInput.style.backgroundColor = ""; }, 1000);
         }
     } catch (e) {
         console.error("搜尋失敗", e);
     } finally {
         calInput.placeholder = originalPlaceholder;
-        if (calInput.value === "") {
-             calInput.style.backgroundColor = ""; 
-        }
     }
 }
 
