@@ -502,67 +502,71 @@ return await res.json();
 
 // 6. 載入紀錄 (終極版：背景載入 + 歷史紀錄分類)
 async function loadRecords(showLoading = true) {
-    // showLoading = true: 顯示全螢幕遮罩 (例如刪除資料後)
-    // showLoading = false: 背景執行，不打擾使用者 (例如剛打開網頁時)
-    
     const data = await callApi({ action: "getRecords" }, showLoading);
     
     let todayTotal = 0;
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0); 
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999); 
     
-    // 取得 HTML 元素
-    const todayListEl = document.getElementById("recordList"); // 今天的清單
-    const oldListEl = document.getElementById("oldRecordList"); // 舊的清單 (隱藏區)
-    const toggleBtn = document.getElementById("historyToggleBtn"); // 展開按鈕
+    // 🔥 聰明日期判斷：只比對「年、月、日」
+    const now = new Date();
+    const todayStr = now.getFullYear() + '/' + (now.getMonth()+1) + '/' + now.getDate();
+
+    const todayListEl = document.getElementById("recordList"); 
+    const oldListEl = document.getElementById("oldRecordList"); 
+    const toggleBtn = document.getElementById("historyToggleBtn"); 
     
-    // 清空清單
     todayListEl.innerHTML = "";
     if(oldListEl) oldListEl.innerHTML = ""; 
     
     let hasOldData = false;
 
     if (Array.isArray(data)) {
-        // 如果完全沒資料
         if (data.length === 0) {
              todayListEl.innerHTML = "<div style='text-align:center; color:#ccc; padding:20px;'>尚無紀錄</div>";
         }
 
+        // 為了讓新紀錄排在最上面，我們把資料反轉一下 (Optional)
+        // data.reverse(); 
+
         data.forEach(item => {
-const todayStr = new Date().toLocaleDateString('sv-SE'); // yyyy-MM-dd
-const itemDateStr = item.date.replaceAll('/', '-');      // yyyy-MM-dd
-const isToday = itemDateStr === todayStr;
+            // 嘗試解析日期
+            let isToday = false;
+            let displayDate = item.date;
+
+            try {
+                // 把 sheet 裡的日期字串變成 Date 物件來比對
+                let itemDate = new Date(item.date);
+                // 檢查是否有效日期
+                if (!isNaN(itemDate.getTime())) {
+                    let itemDateStr = itemDate.getFullYear() + '/' + (itemDate.getMonth()+1) + '/' + itemDate.getDate();
+                    isToday = (itemDateStr === todayStr);
+                    
+                    // 顯示優化
+                    if (isToday) {
+                        // 如果是今天，只顯示時間 HH:mm
+                        displayDate = itemDate.getHours().toString().padStart(2,'0') + ':' + itemDate.getMinutes().toString().padStart(2,'0');
+                    } else {
+                        // 如果是舊紀錄，顯示 MM/DD
+                        displayDate = (itemDate.getMonth()+1) + '/' + itemDate.getDate();
+                    }
+                } else {
+                    // 如果日期格式很亂，就直接用字串比對
+                    isToday = item.date.includes(todayStr) || item.date.includes(todayStr.replaceAll('/', '-'));
+                }
+            } catch(e) {
+                console.log("日期解析失敗", item.date);
+            }
              
-            // 計算熱量：只算今天的
             if (isToday) {
                 todayTotal += Number(item.calories);
             } else {
-                hasOldData = true; // 標記有舊資料
-            }
-            
-            // 處理日期顯示文字
-            let dateDisplay = item.date;
-            try {
-                if (isToday) {
-                     // 今天的只顯示時間 (例如 12:30)
-                     dateDisplay = item.date.includes('T') ? item.date.split('T')[1].substring(0,5) : "Today";
-                } else {
-                     // 舊的顯示日期 (例如 12/13)
-                    const parts = item.date.split('/');
-dateDisplay = parts[1] + '/' + parts[2];
-                }
-            } catch(e) {
-                dateDisplay = item.date.substring(0, 10);
+                hasOldData = true;
             }
 
-            // 產生 HTML
             const html = `
                 <div class="record-item ${isToday ? 'today-highlight' : ''}">
                     <div>
                         <div style="font-weight:500;">${item.item}</div>
-                        <div style="font-size:11px; color:#ccc;">${dateDisplay}</div>
+                        <div style="font-size:11px; color:#ccc;">${displayDate}</div>
                     </div>
                     <div style="display:flex; align-items:center;">
                         <span style="color:var(--accent-hover); font-weight:500; margin-right:5px;">${item.calories}</span>
@@ -570,38 +574,32 @@ dateDisplay = parts[1] + '/' + parts[2];
                     </div>
                 </div>`;
 
-            // 🔥 分類：今天的放上面，舊的放下面
             if (isToday) {
                 todayListEl.innerHTML += html;
             } else {
-                // 如果你有加舊紀錄區塊，就塞進去
                 if(oldListEl) oldListEl.innerHTML += html;
             }
         });
     }
     
-    // 控制「查看更多」按鈕的顯示
     if (toggleBtn) {
         if (hasOldData) {
             toggleBtn.style.display = "block";
-            // 重置按鈕文字，避免卡在「收起」狀態
-            toggleBtn.innerText = `⬇️ 查看近期紀錄`;
-            if(oldListEl) oldListEl.style.display = "none"; // 預設隱藏
+            // 保持原本的開關狀態，不要每次整理都把人家關起來
+            if(oldListEl.style.display === 'block') {
+                 toggleBtn.innerText = "⬆️ 收起紀錄";
+            } else {
+                 toggleBtn.innerText = "⬇️ 查看近期紀錄";
+            }
         } else {
             toggleBtn.style.display = "none";
         }
     }
 
-    // 更新今日攝取數字
     els.todayEaten.value = todayTotal;
     updateDailyAndSave(false); 
 
-    // 背景計算長期儲蓄 (永遠不顯示 loading)
-    const stats = await callApi({ 
-        action: "calcSavings", 
-        tdee: els.tdee.value 
-    }, false); 
-    
+    const stats = await callApi({ action: "calcSavings", tdee: els.tdee.value }, false); 
     if (stats && stats.totalSaved !== undefined) {
         updateLongTermProgress(stats.totalSaved);
     }
@@ -673,10 +671,20 @@ async function addRecord() {
     const cal = els.foodCal.value;
     if(!name || !cal) return alert("請輸入完整");
     
-    await callApi({ action: "addRecord", item: name, calories: cal });
-    els.foodName.value = ""; els.foodCal.value = "";
-await loadRecords(false);
+    // 🔥 新增：抓取手機當下時間
+    const now = new Date();
+    // 格式化為：2025/12/13 14:30
+    const dateStr = now.getFullYear() + '/' + 
+                   (now.getMonth()+1).toString().padStart(2, '0') + '/' + 
+                   now.getDate().toString().padStart(2, '0') + ' ' + 
+                   now.getHours().toString().padStart(2, '0') + ':' + 
+                   now.getMinutes().toString().padStart(2, '0');
 
+    // 把 dateStr 也傳給 Google Sheet
+    await callApi({ action: "addRecord", item: name, calories: cal, date: dateStr });
+    
+    els.foodName.value = ""; els.foodCal.value = "";
+    await loadRecords(false);
 }
 
 async function autoSearch() {
@@ -722,6 +730,24 @@ async function deleteRecord(id) {
 function googleSearch() {
     const val = els.foodName.value;
     if(val) window.open(`https://www.google.com/search?q=${val}+熱量`);
+}
+
+// 🔥 新增：這是原本漏掉的開關功能
+function toggleHistory() {
+    const oldList = document.getElementById("oldRecordList");
+    const btn = document.getElementById("historyToggleBtn");
+    
+    if (!oldList || !btn) return;
+
+    if (oldList.style.display === "none") {
+        oldList.style.display = "block";
+        btn.innerText = "⬆️ 收起紀錄";
+        // 點開時順便滑動到底部，體驗比較好
+        oldList.scrollTop = oldList.scrollHeight;
+    } else {
+        oldList.style.display = "none";
+        btn.innerText = "⬇️ 查看近期紀錄 (Recent)";
+    }
 }
 
 window.onload = init;
