@@ -675,7 +675,8 @@ async function addRecord() {
     
     await callApi({ action: "addRecord", item: name, calories: cal });
     els.foodName.value = ""; els.foodCal.value = "";
-    loadRecords();
+await loadRecords(false);
+
 }
 
 async function autoSearch() {
