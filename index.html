@@ -514,33 +514,31 @@ async function loadRecords(showLoading = true) {
              todayListEl.innerHTML = "<div style='text-align:center; color:#ccc; padding:20px;'>尚無紀錄</div>";
         }
 
-        data.forEach(item => {
-const isToday = item.date.startsWith(todayStr);
-const isYesterday = item.date.startsWith(yesterdayStr);
+data.forEach(item => {
+            const isToday = item.date.startsWith(todayStr);
+            // 昨天只需用來判斷顯示格式，不需要參與邏輯篩選
+            const isYesterday = item.date.startsWith(yesterdayStr); 
             
-let displayTime = "";
-if (isToday) {
-    displayTime = item.date.substring(11, 16);
-} else if (isYesterday) {
-    const parts = item.date.split(' ')[0].split('/');
-    if (parts.length >= 3) displayTime = parts[1] + '/' + parts[2];
-    else displayTime = item.date;
-} else {
-    const parts = item.date.split(' ')[0].split('/');
-    if (parts.length >= 3) displayTime = parts[1] + '/' + parts[2];
-    else displayTime = item.date;
-}
+            let displayTime = "";
+            if (isToday) {
+                // 如果是今天，顯示幾點幾分 (HH:mm)
+                displayTime = item.date.substring(11, 16);
+            } else {
+                // 如果是昨天或更早，顯示日期 (MM/DD)
+                const parts = item.date.split(' ')[0].split('/');
+                if (parts.length >= 3) displayTime = parts[1] + '/' + parts[2];
+                else displayTime = item.date;
+            }
 
-if (isToday) {
-    todayTotal += Number(item.calories);
-}
+            // 1. 計算今日存款：嚴格只算「今天」
+            if (isToday) {
+                todayTotal += Number(item.calories);
+            }
 
-// 2. 判斷是否為「更早之前」的資料（用來控制查看更多按鈕）
-// 如果不是今天，也不是昨天，那就是「很久以前」的資料
-if (!isToday && !isYesterday) {
-    hasOldData = true;
-}
-
+            // 2. 控制按鈕顯示：只要「不是今天」，都算歷史資料 (包含昨天)
+            if (!isToday) {
+                hasOldData = true;
+            }
 
             const html = `
                 <div class="record-item ${isToday ? 'today-highlight' : ''}">
@@ -554,6 +552,7 @@ if (!isToday && !isYesterday) {
                     </div>
                 </div>`;
 
+            // 3. 顯示位置：今天放上面，昨天跟以前的放下面
             if (isToday) {
                 todayListEl.innerHTML += html;
             } else {
