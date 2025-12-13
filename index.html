@@ -295,7 +295,8 @@ button:hover { background: var(--accent-hover); }
     <div class="card">
         <h2>Add Food</h2>
         <label>Food Name</label>
-        <input type="text" id="foodName" placeholder="輸入食物名稱" onblur="autoSearch()">
+<input type="text" id="foodName" oninput="autoSearch()">
+
         
         <label>Calories</label>
         <input type="number" id="foodCal" placeholder="kcal">
