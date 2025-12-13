@@ -601,6 +601,12 @@ function updateDailyAndSave(shouldReload = true) {
 // 8. 更新長期進度條
 function updateLongTermProgress(savedAmount) {
     const totalGoal = parseInt(els.totalGoalCal.textContent.replace(/,/g, '')) || 1;
+    if (!totalGoal || totalGoal <= 0) {
+        els.longTermProgress.style.width = "0%";
+        els.longTermPercent.textContent = "尚未設定目標";
+        els.savedCal.textContent = savedAmount.toLocaleString();
+        return;
+    }
     els.savedCal.textContent = savedAmount.toLocaleString();
     
     let percent = (savedAmount / totalGoal) * 100;
