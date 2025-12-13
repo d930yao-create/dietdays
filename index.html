@@ -228,7 +228,8 @@ button:hover { background: var(--accent-hover); }
 <div class="weight-inputs">
         <div>
             <label>初始 (Start)</label>
-            <input type="number" id="startWeight" value="77" onchange="calcTotalGoal(); saveSettings();">
+            <input type="number" id="startWeight" value="77" disabled>
+
         </div>
 
         <div style="display:flex; flex-direction:column;">
@@ -236,7 +237,8 @@ button:hover { background: var(--accent-hover); }
             
             <div style="display:flex; gap:8px;"> 
                 <input type="number" id="currentWeight" placeholder="輸入" style="margin-bottom:0;">
-                <button onclick="logWeight()" style="width:auto; padding:0 12px; background:var(--accent-hover);">💾</button>
+                <button onclick="logWeight(this)">💾</button>
+
             </div>
 
             <div id="weightDiffDisplay" style="font-size:13px; color:var(--text-main); margin-top:6px; font-weight:bold;">
@@ -306,15 +308,14 @@ button:hover { background: var(--accent-hover); }
         <h2>History</h2>
         <div class="record-list" id="recordList">Loading...</div>
         
-        <div id="historyToggleBtn" onclick="toggleHistory()" style="
+<div id="historyToggleBtn" onclick="toggleHistory()" style="
             text-align: center;
             font-size: 12px;
             color: var(--text-light);
             padding: 10px 0;
             cursor: pointer;
-            border-top: 1px dashed #EBE5DE;
-            margin-top: 10px;
-            display: none; /* 沒資料時隱藏 */
+            margin-top: 5px; /* 稍微縮小間距 */
+            display: none;
         ">
             ⬇️ 查看近期紀錄 (Recent)
         </div>
@@ -455,11 +456,17 @@ async function callApi(payload, showLoading = true) {
     if (showLoading) els.loading.style.display = "flex";
     
     try {
-        const res = await fetch(API_URL, {
-            method: "POST",
-            body: JSON.stringify(payload)
-        });
-        return await res.json();
+const controller = new AbortController();
+setTimeout(() => controller.abort(), 8000);
+
+const res = await fetch(API_URL, {
+  method: "POST",
+  body: JSON.stringify(payload),
+  signal: controller.signal
+});
+
+if (!res.ok) throw new Error("API Error");
+return await res.json();
     } catch (e) {
         console.error(e);
         if (showLoading) alert("連線錯誤"); 
@@ -604,11 +611,10 @@ function updateLongTermProgress(savedAmount) {
 }
 
 // 9. 記錄體重按鈕功能 (保留這個新的！)
-async function logWeight() {
+async function logWeight(btn) {
     const w = els.currentW.value;
     if (!w) return alert("請輸入體重！");
 
-    const btn = event.target;
     const originalText = btn.innerText;
     btn.innerText = "⏳";
     btn.disabled = true;
