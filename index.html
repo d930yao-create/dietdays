@@ -787,7 +787,7 @@ function toggleHistory() {
     if (oldList.style.display === "none") {
         oldList.style.display = "block";
         btn.innerText = "⬆️ 收起紀錄";
-        oldList.scrollTop = oldList.scrollHeight;
+        oldList.scrollTop = 0;
     } else {
         oldList.style.display = "none";
         btn.innerText = "⬇️ 查看近期紀錄 (Recent)";
