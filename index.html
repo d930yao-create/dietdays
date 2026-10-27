@@ -28,7 +28,7 @@ body {
   padding: 0;
   min-height: 100vh;
   box-sizing: border-box;
-  padding-bottom: 80px; /* 留給底部導覽列的空間 */
+  padding-bottom: 90px;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -43,7 +43,7 @@ h2 {
   align-items: center;
 }
 
-/* App 框架樣式 */
+/* Tab 框架 */
 .tab-pane {
     display: none;
     padding: 20px;
@@ -58,6 +58,7 @@ h2 {
     to { opacity: 1; transform: translateY(0); }
 }
 
+/* 底部導覽列 */
 .bottom-nav {
     position: fixed;
     bottom: 0;
@@ -101,7 +102,7 @@ h2 {
     transform: translateY(-2px);
 }
 
-/* --- Tab 1: 存錢筒專區樣式 (完全保留原有樣式) --- */
+/* 容器與卡片 */
 .container {
   max-width: 1000px;
   margin: 0 auto;
@@ -122,6 +123,7 @@ h2 {
   border: 1px solid rgba(255, 255, 255, 0.6);
   display: flex;
   flex-direction: column;
+  margin-bottom: 20px;
 }
 
 label {
@@ -267,7 +269,7 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
     gap: 10px;
 }
 
-/* --- Tab 2: AI 精靈專區樣式 --- */
+/* --- Tab 2: AI 精靈專區 --- */
 .tab2-container {
     max-width: 600px;
     margin: 0 auto;
@@ -296,29 +298,19 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .ai-output-area {
     margin-top: 10px;
-    min-height: 200px;
-    transition: all 0.3s;
+    background: #fff;
+    border-radius: var(--border-radius);
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(109, 93, 80, 0.05);
 }
 
-/* Gemini 回傳的 HTML 基礎美化保底 */
-.ai-output-area h3 {
-    color: var(--text-main);
-    font-size: 16px;
-    margin-bottom: 8px;
-    margin-top: 20px;
-    border-bottom: 1px dashed var(--accent);
-    padding-bottom: 5px;
-}
-.ai-output-area ul {
-    padding-left: 20px;
-    color: var(--text-main);
+.menu-card-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px dashed #f0e6dc;
     font-size: 14px;
-    line-height: 1.6;
-}
-.ai-output-area p {
-    color: var(--text-main);
-    font-size: 14px;
-    line-height: 1.6;
 }
 </style>
 </head>
@@ -326,7 +318,7 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 
 <div id="loading">
     <div style="font-size: 24px;">✨</div>
-    <div id="loading-text">Syncing...</div>
+    <div id="loading-text">雲端同步中...</div>
 </div>
 
 <!-- Tab 1: 存錢筒 -->
@@ -367,10 +359,6 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
                     <div class="big-progress-fill" id="longTermProgress"></div>
                 </div>
                 <div class="progress-badge" id="longTermPercent">0% 完成</div>
-                <p style="font-size:11px; color:var(--text-light); margin-top:8px; line-height:1.4;">
-                    *邏輯：減去1公斤需消耗 7700 kcal。<br>
-                    進度條會根據你每天 (TDEE - 攝取) 的赤字累積。
-                </p>
             </div>
         
             <div class="daily-calc">
@@ -388,7 +376,6 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
                     <span>今日存款 (Deficit)</span>
                     <span id="todayDeficit">0</span>
                 </div>
-                <div style="font-size:11px; color:#aaa; margin-top:4px;">正數代表今日變瘦，負數代表變胖</div>
             </div>
         </div>
         
@@ -407,11 +394,9 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
         <div class="card">
             <h2>History</h2>
             <div class="record-list" id="recordList">Loading...</div>
-            
             <div id="historyToggleBtn" onclick="toggleHistory()" style="text-align: center; font-size: 12px; color: var(--text-light); padding: 10px 0; cursor: pointer; margin-top: 5px; display: none;">
-                ⬇️ 查看近期紀錄 (Recent)
+                ⬇️ 查看近期紀錄
             </div>
-        
             <div class="record-list" id="oldRecordList" style="display: none; opacity: 0.7; max-height: 200px;"></div>
         </div>
     </div>
@@ -422,19 +407,22 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
     <div class="tab2-container">
         <div class="header-text">
             <h1>Genie Meal Planner</h1>
-            <p>寫下特別想吃的料理，我幫你平衡一整天的熱量</p>
+            <p>隨機抽籤或許願想吃的料理，精靈幫你智慧平衡熱量</p>
         </div>
         
-        <div class="card" style="box-shadow: 0 10px 30px rgba(109, 93, 80, 0.05);">
-            <label>今天想吃點什麼？</label>
-            <input type="text" id="ai-food-input" placeholder="例如：三杯雞、炸豬排、鮭魚..." style="padding:14px; font-size:15px; margin-bottom: 16px;">
-            <button id="ai-btn" onclick="generateAIMeal()" style="padding:14px; font-size: 15px; display:flex; justify-content:center; align-items:center; gap:8px;">
-                <span>✨ 幫我搭配</span>
-            </button>
+        <div class="card" style="box-shadow: 0 10px 30px rgba(109, 93, 80, 0.05); gap: 12px;">
+            <div style="display: flex; gap: 10px;">
+                <button onclick="generateAIMenu('random')" style="background: var(--text-main);">🎲 隨機安排今日菜單</button>
+            </div>
+            <div style="border-top: 1px dashed #E0D6CC; padding-top: 12px; margin-top: 5px;">
+                <label>或者許願想吃的一道菜：</label>
+                <input type="text" id="ai-food-input" placeholder="例如：三杯雞、炸豬排..." style="padding:12px; font-size:14px; margin-bottom: 10px;">
+                <button id="ai-btn" onclick="generateAIMenu('wish')">✨ 許願搭配</button>
+            </div>
         </div>
 
         <div id="ai-result-area" class="ai-output-area" style="display:none;">
-            <!-- AI 生成的 HTML 將注入於此 -->
+            <!-- 產出的菜單與勾選區將注入於此 -->
         </div>
     </div>
 </div>
@@ -452,43 +440,57 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 </div>
 
 <script>
-// --- Tab 切換邏輯 ---
+// --- Google Apps Script 雲端同步連結 ---
+const API_URL = "https://script.google.com/macros/s/AKfycbzs4l4E4kxTxxBicnuHSgKo7zb1gMyC-hBnHKBoFW9Hpol1kOuQM8cc32C34fjXepiy/exec";
+
 function switchTab(tabId, element) {
     document.querySelectorAll('.tab-pane').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
-    
     document.getElementById(tabId).classList.add('active');
     element.classList.add('active');
 }
 
-// --- AI 精靈邏輯 (Gemini API) ---
-async function generateAIMeal() {
-    const inputField = document.getElementById('ai-food-input');
-    const btn = document.getElementById('ai-btn');
+// --- 智慧 AI 精靈：參考昨日熱量並可勾選匯入 ---
+async function generateAIMenu(mode) {
     const resultArea = document.getElementById('ai-result-area');
     const loadingScreen = document.getElementById('loading');
     const loadingText = document.getElementById('loading-text');
-    
-    const userInput = inputField.value.trim();
-    if (!userInput) return alert("請輸入你想吃的食物喔！");
+    const wishInput = document.getElementById('ai-food-input');
 
-    // 顯示 Loading
-    loadingText.innerText = "精靈正在為您搭配菜單...";
+    let prompt = "";
+    const todayEatenVal = parseInt(document.getElementById('todayEaten').value) || 0;
+
+    if (mode === 'random') {
+        prompt = `使用者今天想要隨機安排一日三餐。昨天攝取熱量大約是 ${todayEatenVal} 大卡。請幫她設計符合總熱量 1300-1450 大卡的早、中、晚餐菜單。
+嚴格規則：
+1. 無冷凍庫機制：若安排了生鮮海產（如蝦仁、鯛魚），必須確保同類食材在當天午晚餐內完食。
+2. 格式要求：請回傳合法的 JSON 格式（不要有 markdown 符號如 \`\`\`json），結構如下：
+[
+  {"meal": "早餐", "name": "水煮蛋2顆、無糖豆漿", "calories": 250},
+  {"meal": "早餐", "name": "全麥吐司1片", "calories": 150},
+  {"meal": "午餐", "name": "雞胸肉1掌、白飯半碗", "calories": 400},
+  {"meal": "午餐", "name": "燙青江菜2碗", "calories": 60},
+  {"meal": "晚餐", "name": "板豆腐半盒、蝦仁湯", "calories": 300},
+  {"meal": "晚餐", "name": "白飯半碗", "calories": 140}
+]`;
+    } else {
+        const food = wishInput.value.trim();
+        if (!food) return alert("請輸入想吃的料理喔！");
+        prompt = `使用者今天許願想吃：${food}。昨天攝取熱量大約是 ${todayEatenVal} 大卡。請幫她安排一整天菜單，若許願的是重口味食物，請搭配無油配菜並平衡整天熱量在 1300-1450 大卡內。
+嚴格規則：
+請回傳合法的 JSON 格式（不要有 markdown 符號如 \`\`\`json），把許願的菜色排入其中，結構如下：
+[
+  {"meal": "早餐", "name": "無糖優格、香蕉", "calories": 220},
+  {"meal": "午餐", "name": "${food} (許願主餐)", "calories": 600},
+  {"meal": "午餐", "name": "清炒蔬菜、無油蒸蛋", "calories": 150},
+  {"meal": "晚餐", "name": "清淡豆腐湯、白飯半碗", "calories": 280}
+]`;
+    }
+
+    loadingText.innerText = "精靈正在為您精算熱量與菜單...";
     loadingScreen.style.display = "flex";
-    btn.disabled = true;
 
-    const prompt = `你是一個溫柔的飲食精靈。使用者今天想吃：${userInput}。請幫他安排符合 1300-1450 大卡的一日三餐（早、中、晚）。
-遵守以下嚴格規則：
-1. 視覺呼吸感：食物單品旁絕對不要標示熱量，只在「早餐」、「午餐」、「晚餐」標題旁邊用括號標示該餐大約的總熱量（例如：午餐 (約 450 kcal)）。
-2. 無冷凍庫機制：如果使用者輸入的是生鮮肉類或海鮮（如蝦仁、雞肉、鯛魚），請安排在午餐與晚餐，確保同一天內吃完。
-3. 熱量平衡：如果使用者許願的是重口味或高熱量食物（如三杯雞、炸豬排），請搭配無油配菜（如清炒蔬菜、蒸蛋），並將另外兩餐調整為清爽低卡。
-4. 輸出格式：請直接輸出帶有 inline CSS 的 HTML 格式，使用乾淨的卡片排版，字體顏色使用 #6D5D50，不需要任何 markdown 或額外廢話。`;
-
-    const payload = {
-        contents: [{ parts: [{ text: prompt }] }]
-    };
-    
-    // Canvas 環境下保留空字串，系統會自動注入
+    const payload = { contents: [{ parts: [{ text: prompt }] }] };
     const apiKey = "";
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
 
@@ -498,38 +500,88 @@ async function generateAIMeal() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        
         const result = await response.json();
-        if (result.candidates && result.candidates[0].content.parts[0].text) {
-            let htmlContent = result.candidates[0].content.parts[0].text;
-            // 清理可能附帶的 markdown 標記
-            htmlContent = htmlContent.replace(/```html/g, '').replace(/```/g, '');
-            
-            resultArea.innerHTML = htmlContent;
-            resultArea.style.display = "block";
-            
-            // 平滑滾動到結果
-            setTimeout(() => {
-                resultArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 100);
-        } else {
-            resultArea.innerHTML = "<p style='text-align:center; color: #c0392b;'>精靈暫時需要休息，請稍後再試一次。</p>";
-            resultArea.style.display = "block";
-        }
-    } catch (error) {
-        console.error("AI Generation Error:", error);
-        alert("無法連線到 AI，請確認網路連線。");
+        let text = result.candidates[0].content.parts[0].text;
+        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        const menuItems = JSON.parse(text);
+
+        let html = `<h3 style="margin-top:0; font-family:'DM Serif Display',serif; color:var(--text-main);">✨ 為您精算的專屬菜單</h3>`;
+        html += `<p style="font-size:12px; color:var(--text-light); margin-bottom:15px;">請勾選你實際有吃的品項，確認後一鍵加入今日帳本：</p>`;
+        
+        menuItems.forEach((item, index) => {
+            html += `
+                <div class="menu-card-item">
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:14px; text-transform:none; color:var(--text-main); margin:0;">
+                        <input type="checkbox" class="menu-checkbox" value="${item.calories}" data-name="[${item.meal}] ${item.name}" checked style="width:18px; height:18px; margin:0;">
+                        <span><b>[${item.meal}]</b> ${item.name}</span>
+                    </label>
+                    <span style="color:var(--accent-hover); font-weight:bold; font-size:13px;">${item.calories} kcal</span>
+                </div>`;
+        });
+
+        html += `
+            <div id="low-calorie-warning" style="font-size:12px; color:#c0392b; margin:12px 0; display:none;">
+                ⚠️ 貼心提醒：勾選的總熱量偏低，建議適度補充水分或加顆水煮蛋保護代謝喔！
+            </div>
+            <button onclick="importSelectedMeals()" style="margin-top:15px; background:var(--gold); color:#fff;">✅ 將勾選料理加入今日帳本</button>`;
+
+        resultArea.innerHTML = html;
+        resultArea.style.display = "block";
+
+        // 綁定動態防護檢測
+        document.querySelectorAll('.menu-checkbox').forEach(chk => {
+            chk.addEventListener('change', checkTotalSelectedCalories);
+        });
+        checkTotalSelectedCalories();
+
+    } catch (e) {
+        console.error(e);
+        alert("精靈連線異常，請再試一次。");
     } finally {
         loadingScreen.style.display = "none";
-        btn.disabled = false;
-        loadingText.innerText = "Syncing..."; // 恢復原本文字
     }
 }
 
+// 檢查勾選總熱量是否過低
+function checkTotalSelectedCalories() {
+    let total = 0;
+    document.querySelectorAll('.menu-checkbox:checked').forEach(chk => {
+        total += parseInt(chk.value) || 0;
+    });
+    const warningEl = document.getElementById('low-calorie-warning');
+    if (warningEl) {
+        warningEl.style.display = (total > 0 && total < 1000) ? "block" : "none";
+    }
+}
 
-// --- Tab 1 存錢筒邏輯 (完全保留原有 Google Apps Script 邏輯) ---
-const API_URL = "https://script.google.com/macros/s/AKfycbzs4l4E4kxTxxBicnuHSgKo7zb1gMyC-hBnHKBoFW9Hpol1kOuQM8cc32C34fjXepiy/exec";
+// 批次匯入勾選的料理至雲端試算表與本地
+async function importSelectedMeals() {
+    const checkedBoxes = document.querySelectorAll('.menu-checkbox:checked');
+    if (checkedBoxes.length === 0) return alert("請至少勾選一項料理！");
 
+    const now = new Date();
+    const dateStr = now.getFullYear() + '/' + 
+                   (now.getMonth()+1).toString().padStart(2, '0') + '/' + 
+                   now.getDate().toString().padStart(2, '0') + ' ' + 
+                   now.getHours().toString().padStart(2, '0') + ':' + 
+                   now.getMinutes().toString().padStart(2, '0');
+
+    document.getElementById('loading-text').innerText = "正在寫入帳本...";
+    document.getElementById('loading').style.display = "flex";
+
+    for (const chk of checkedBoxes) {
+        const itemName = chk.getAttribute('data-name');
+        const cal = chk.value;
+        await callApi({ action: "addRecord", item: itemName, calories: cal, date: dateStr }, false);
+    }
+
+    document.getElementById('loading').style.display = "none";
+    alert("成功加入今日帳本！");
+    switchTab('tab1', document.querySelectorAll('.nav-item')[0]);
+    loadRecords(false);
+}
+
+// --- 存錢筒核心邏輯 (完全保留 Google Sheet 串接) ---
 const els = {
     startW: document.getElementById('startWeight'),
     currentW: document.getElementById('currentWeight'), 
@@ -544,12 +596,10 @@ const els = {
     foodName: document.getElementById('foodName'),
     foodCal: document.getElementById('foodCal'),
     recordList: document.getElementById('recordList'),
-    loading: document.getElementById('loading'),
-    loadingText: document.getElementById('loading-text')
+    loading: document.getElementById('loading')
 };
 
 async function init() {
-    // 讀取本地快取
     const saved = JSON.parse(localStorage.getItem('bowbow_settings'));
     if (saved) {
         if(saved.startW) els.startW.value = saved.startW;
@@ -562,21 +612,15 @@ async function init() {
 
     els.loading.style.display = "none";
 
-    // 雲端抓最新的設定
     callApi({ action: "getSettings" }, false).then(cloudSettings => {
         if (cloudSettings && cloudSettings.start) {
             els.startW.value = cloudSettings.start;
             els.currentW.value = cloudSettings.current;
             els.targetW.value = cloudSettings.target;
             els.tdee.value = cloudSettings.tdee;
-            
             localStorage.setItem('bowbow_settings', JSON.stringify({
-                startW: cloudSettings.start,
-                currentW: cloudSettings.current,
-                targetW: cloudSettings.target,
-                tdee: cloudSettings.tdee
+                startW: cloudSettings.start, currentW: cloudSettings.current, targetW: cloudSettings.target, tdee: cloudSettings.tdee
             }));
-            
             calcTotalGoal(); 
             updateDiff(); 
         }
@@ -589,13 +633,10 @@ function calcTotalGoal() {
     const start = parseFloat(els.startW.value) || 77;
     const current = parseFloat(els.currentW.value) || start; 
     const target = parseFloat(els.targetW.value) || 55;
-    
     let totalDiff = start - target;
     if (totalDiff <= 0) totalDiff = 1;
-
     let lostDiff = start - current;
     if (lostDiff < 0) lostDiff = 0; 
-
     const totalCalNeeded = Math.round(totalDiff * 7700);
     const currentSavedCal = Math.round(lostDiff * 7700); 
 
@@ -604,10 +645,8 @@ function calcTotalGoal() {
 
     let percent = (lostDiff / totalDiff) * 100;
     percent = Math.min(100, Math.max(0, percent)); 
-
     els.longTermProgress.style.width = percent + "%";
     els.longTermPercent.textContent = percent.toFixed(1) + "% 完成";
-
     return totalCalNeeded;
 }
 
@@ -616,10 +655,8 @@ function updateDiff() {
     const target = parseFloat(els.targetW.value);
     const diffEl = document.getElementById("diffVal");
     const labelEl = document.getElementById("weightDiffDisplay");
-
     if (current && target && diffEl && labelEl) {
         let diff = (current - target).toFixed(1); 
-        
         if (diff > 0) {
             diffEl.innerText = diff;
             labelEl.innerHTML = `距離目標: <span style="color:#c0392b; font-size:15px;">${diff}</span> kg`;
@@ -631,75 +668,31 @@ function updateDiff() {
 }
 
 function saveSettings() {
-    const data = {
-        start: els.startW.value,
-        current: els.currentW.value,
-        target: els.targetW.value,
-        tdee: els.tdee.value
-    };
-
-    localStorage.setItem('bowbow_settings', JSON.stringify({
-        startW: data.start,
-        currentW: data.current,
-        targetW: data.target,
-        tdee: data.tdee
-    }));
-
-    callApi({ 
-        action: "saveSettings", 
-        start: data.start, 
-        current: data.current, 
-        target: data.target, 
-        tdee: data.tdee 
-    }, false);
+    const data = { start: els.startW.value, current: els.currentW.value, target: els.targetW.value, tdee: els.tdee.value };
+    localStorage.setItem('bowbow_settings', JSON.stringify({ startW: data.start, currentW: data.current, targetW: data.target, tdee: data.tdee }));
+    callApi({ action: "saveSettings", ...data }, false);
 }
 
 async function callApi(payload, showLoading = true) {
     if (showLoading) {
-        els.loadingText.innerText = "Syncing...";
+        document.getElementById('loading-text').innerText = "雲端同步中...";
         els.loading.style.display = "flex";
     }
-    
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15秒超時保護
-
-        const res = await fetch(API_URL, {
-            method: "POST",
-            headers: {
-                "Content-Type": "text/plain;charset=utf-8" // 降低 CORS 跨網域阻擋機率
-            },
-            body: JSON.stringify(payload),
-            signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-
+        setTimeout(() => controller.abort(), 15000);
+        const res = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload), signal: controller.signal });
         if (!res.ok) throw new Error("API Error");
         return await res.json();
     } catch (e) {
-        console.warn("雲端連線失敗，自動切換至本地離線模式 (Offline Mode):", e);
-        
-        // --- 離線備援機制 (Offline Fallback) ---
-        // 確保在無法連線 Google Apps Script 時，網頁的記帳功能依然可以順暢運作
-        if (payload.action === "getRecords") {
-            return JSON.parse(localStorage.getItem('bowbow_records') || '[]');
-        } else if (payload.action === "addRecord") {
-            let records = JSON.parse(localStorage.getItem('bowbow_records') || '[]');
-            records.unshift({ id: Date.now().toString(), item: payload.item, calories: payload.calories, date: payload.date });
-            localStorage.setItem('bowbow_records', JSON.stringify(records));
+        console.warn("離線備援啟用", e);
+        if (payload.action === "getRecords") return JSON.parse(localStorage.getItem('bowbow_records') || '[]');
+        if (payload.action === "addRecord") {
+            let recs = JSON.parse(localStorage.getItem('bowbow_records') || '[]');
+            recs.unshift({ id: Date.now().toString(), item: payload.item, calories: payload.calories, date: payload.date });
+            localStorage.setItem('bowbow_records', JSON.stringify(recs));
             return { success: true };
-        } else if (payload.action === "deleteRecord") {
-            let records = JSON.parse(localStorage.getItem('bowbow_records') || '[]');
-            records = records.filter(r => r.id !== payload.id);
-            localStorage.setItem('bowbow_records', JSON.stringify(records));
-            return { success: true };
-        } else if (payload.action === "searchFood") {
-            return { matches: [] };
-        } else if (payload.action === "calcSavings") {
-            return { totalSaved: 0 };
         }
-        
         return null;
     } finally {
         if (showLoading) els.loading.style.display = "none";
@@ -708,14 +701,9 @@ async function callApi(payload, showLoading = true) {
 
 async function loadRecords(showLoading = true) {
     const data = await callApi({ action: "getRecords" }, showLoading);
-    
     let todayTotal = 0;
-    
     const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    const todayStr = `${yyyy}/${mm}/${dd}`; 
+    const todayStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`; 
 
     const todayListEl = document.getElementById("recordList"); 
     const oldListEl = document.getElementById("oldRecordList"); 
@@ -723,92 +711,53 @@ async function loadRecords(showLoading = true) {
     
     todayListEl.innerHTML = "";
     if(oldListEl) oldListEl.innerHTML = ""; 
-    
     let hasOldData = false;
 
     if (Array.isArray(data)) {
-        if (data.length === 0) {
-             todayListEl.innerHTML = "<div style='text-align:center; color:#ccc; padding:20px;'>尚無紀錄</div>";
-        }
+        if (data.length === 0) todayListEl.innerHTML = "<div style='text-align:center; color:#ccc; padding:20px;'>尚無紀錄</div>";
 
         data.forEach(item => {
             const isToday = item.date.startsWith(todayStr);
-            const isYesterday = item.date.startsWith(yesterdayStr); 
-            
-            let displayTime = "";
-            if (isToday) {
-                displayTime = item.date.substring(11, 16);
-            } else {
-                const parts = item.date.split(' ')[0].split('/');
-                if (parts.length >= 3) displayTime = parts[1] + '/' + parts[2];
-                else displayTime = item.date;
-            }
-
-            if (isToday) {
-                todayTotal += Number(item.calories);
-            }
-
-            if (!isToday) {
-                hasOldData = true;
-            }
+            let displayTime = isToday ? item.date.substring(11, 16) : item.date.split(' ')[0];
+            if (isToday) todayTotal += Number(item.calories);
+            else hasOldData = true;
 
             const html = `
-                <div class="record-item ${isToday ? 'today-highlight' : ''}">
+                <div class="record-item">
                     <div>
                         <div style="font-weight:500;">${item.item}</div>
-                        <div style="font-size:11px; color:#ccc;">${displayTime}</div>
+                        <div style="font-size:11px; color:#aaa;">${displayTime}</div>
                     </div>
                     <div style="display:flex; align-items:center;">
                         <span style="color:var(--accent-hover); font-weight:500; margin-right:5px;">${item.calories}</span>
                         <button class="delete-btn" onclick="deleteRecord('${item.id}')">×</button>
                     </div>
                 </div>`;
-
-            if (isToday) {
-                todayListEl.innerHTML += html;
-            } else {
-                if(oldListEl) oldListEl.innerHTML += html;
-            }
+            if (isToday) todayListEl.innerHTML += html;
+            else if(oldListEl) oldListEl.innerHTML += html;
         });
     }
     
-    if (toggleBtn) {
-        if (hasOldData) {
-            toggleBtn.style.display = "block";
-            if(oldListEl.style.display === 'block') {
-                 toggleBtn.innerText = "⬆️ 收起紀錄";
-            } else {
-                 toggleBtn.innerText = "⬇️ 查看近期紀錄";
-            }
-        } else {
-            toggleBtn.style.display = "none";
-        }
-    }
-
+    if (toggleBtn) toggleBtn.style.display = hasOldData ? "block" : "none";
     els.todayEaten.value = todayTotal;
     updateDailyAndSave(false); 
 
     const stats = await callApi({ action: "calcSavings", tdee: els.tdee.value }, false); 
-    if (stats && stats.totalSaved !== undefined) {
-        updateLongTermProgress(stats.totalSaved);
-    }
+    if (stats && stats.totalSaved !== undefined) updateLongTermProgress(stats.totalSaved);
 }
 
 function updateDailyAndSave(shouldReload = true) {
     const tdee = parseInt(els.tdee.value) || 1350;
     const eaten = parseInt(els.todayEaten.value) || 0;
     const deficit = tdee - eaten;
-    
     els.todayDeficit.textContent = deficit;
     els.todayDeficit.style.color = deficit >= 0 ? "#C9B29C" : "#c0392b";
-    
     if(shouldReload) saveSettings();
 }
 
 function updateLongTermProgress(backendSaved) {
-    if (els.currentW.value) {
-        calcTotalGoal(); 
-    } else {
+    if (els.currentW.value) calcTotalGoal(); 
+    else {
         const totalGoal = parseInt(els.totalGoalCal.textContent.replace(/,/g, '')) || 1;
         els.savedCal.textContent = backendSaved.toLocaleString();
         let percent = (backendSaved / totalGoal) * 100;
@@ -820,29 +769,21 @@ function updateLongTermProgress(backendSaved) {
 async function logWeight(btn) {
     const w = els.currentW.value;
     if (!w) return alert("請輸入體重！");
-
-    const originalText = btn.innerText;
+    const orig = btn.innerText;
     btn.innerText = "⏳";
     btn.disabled = true;
-
     try {
         await callApi({ action: "logWeight", weight: w }, false);
         updateDiff(); 
         calcTotalGoal(); 
-        
         const now = new Date();
-        const timeStr = (now.getMonth()+1)+'/'+now.getDate()+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
-        document.getElementById("lastWeightLog").innerText = "已存: " + timeStr;
-        document.getElementById("lastWeightLog").style.color = "#D4AF37";
+        document.getElementById("lastWeightLog").innerText = "已存: " + (now.getMonth()+1)+'/'+now.getDate()+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
         saveSettings(); 
     } catch (e) {
         alert("儲存失敗");
     } finally {
         btn.innerText = "✅";
-        setTimeout(() => { 
-            btn.innerText = originalText; 
-            btn.disabled = false; 
-        }, 2000);
+        setTimeout(() => { btn.innerText = orig; btn.disabled = false; }, 2000);
     }
 }
 
@@ -850,97 +791,22 @@ async function addRecord() {
     const name = els.foodName.value;
     const cal = els.foodCal.value;
     if(!name || !cal) return alert("請輸入完整");
-    
     const now = new Date();
-    const dateStr = now.getFullYear() + '/' + 
-                   (now.getMonth()+1).toString().padStart(2, '0') + '/' + 
-                   now.getDate().toString().padStart(2, '0') + ' ' + 
-                   now.getHours().toString().padStart(2, '0') + ':' + 
-                   now.getMinutes().toString().padStart(2, '0');
-
+    const dateStr = now.getFullYear() + '/' + (now.getMonth()+1).toString().padStart(2, '0') + '/' + now.getDate().toString().padStart(2, '0') + ' ' + now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
     await callApi({ action: "addRecord", item: name, calories: cal, date: dateStr });
-    
     els.foodName.value = ""; els.foodCal.value = "";
     await loadRecords(false);
 }
 
 async function autoSearch() {
-    const nameInput = els.foodName;
-    const calInput = els.foodCal;
-    const name = nameInput.value.trim();
-
-    if (!name) return;
-    if (calInput.value && calInput.value !== "") return;
-
-    const originalPlaceholder = calInput.placeholder;
-    calInput.placeholder = "🔍 搜尋中...";
-    hideFoodOptions();
-
+    const name = els.foodName.value.trim();
+    if (!name || els.foodCal.value) return;
     try {
         const res = await callApi({ action: "searchFood", item: name }, false);
         if (res?.matches && res.matches.length === 1) {
-            calInput.value = res.matches[0].calories;
-            flashCalInput(calInput);
-        } else if (res?.matches && res.matches.length > 1) {
-            showFoodOptions(res.matches);
+            els.foodCal.value = res.matches[0].calories;
         }
-    } catch (e) {
-        console.error("搜尋失敗", e);
-    } finally {
-        calInput.placeholder = originalPlaceholder;
-    }
-}
-
-function flashCalInput(input) {
-    input.style.backgroundColor = "#fff9db";
-    setTimeout(() => { input.style.backgroundColor = ""; }, 1000);
-}
-
-function showFoodOptions(list) {
-    let menu = document.getElementById("foodOptions");
-
-    if (!menu) {
-        menu = document.createElement("div");
-        menu.id = "foodOptions";
-        menu.style.position = "absolute";
-        menu.style.background = "#fff";
-        menu.style.border = "1px solid #ddd";
-        menu.style.borderRadius = "8px";
-        menu.style.boxShadow = "0 4px 10px rgba(0,0,0,0.1)";
-        menu.style.zIndex = "999";
-        menu.style.marginTop = "4px";
-        menu.style.width = els.foodName.offsetWidth + "px";
-        els.foodName.parentNode.appendChild(menu);
-    }
-
-    menu.innerHTML = "";
-    menu.style.left = els.foodName.offsetLeft + "px";
-    menu.style.top = els.foodName.offsetTop + els.foodName.offsetHeight + "px";
-    menu.style.display = "block";
-
-    list.forEach(item => {
-        const btn = document.createElement("div");
-        btn.textContent = `${item.item}（${item.calories} kcal）`;
-        btn.style.padding = "8px 12px";
-        btn.style.cursor = "pointer";
-        btn.style.borderBottom = "1px solid #f0f0f0";
-
-        btn.onmouseenter = () => btn.style.background = "#f8f9fa";
-        btn.onmouseleave = () => btn.style.background = "#fff";
-
-        btn.onclick = () => {
-            els.foodName.value = item.item;
-            els.foodCal.value = item.calories;
-            hideFoodOptions();
-            flashCalInput(els.foodCal);
-        };
-        menu.appendChild(btn);
-    });
-}
-
-function hideFoodOptions() {
-    const menu = document.getElementById("foodOptions");
-    if (menu) menu.style.display = "none";
+    } catch (e) {}
 }
 
 async function deleteRecord(id) {
@@ -948,15 +814,6 @@ async function deleteRecord(id) {
     await callApi({ action: "deleteRecord", id: id });
     loadRecords();
 }
-
-function getDateStr(offset = 0) {
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
-}
-
-const todayStr = getDateStr(0);
-const yesterdayStr = getDateStr(-1);
 
 function googleSearch() {
     const val = els.foodName.value;
@@ -966,16 +823,12 @@ function googleSearch() {
 function toggleHistory() {
     const oldList = document.getElementById("oldRecordList");
     const btn = document.getElementById("historyToggleBtn");
-    
-    if (!oldList || !btn) return;
-
     if (oldList.style.display === "none") {
         oldList.style.display = "block";
         btn.innerText = "⬆️ 收起紀錄";
-        oldList.scrollTop = 0;
     } else {
         oldList.style.display = "none";
-        btn.innerText = "⬇️ 查看近期紀錄 (Recent)";
+        btn.innerText = "⬇️ 查看近期紀錄";
     }
 }
 
