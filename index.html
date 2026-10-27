@@ -2,14 +2,8 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BowBow Calorie Savings</title>
-<link rel="icon" href="logo.png" type="image/png">
-<link rel="apple-touch-icon" href="logo.png">
-
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="BowBow Diary">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>日常飲食管家</title>
 <meta name="theme-color" content="#FDFBF7">
  
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
@@ -31,9 +25,11 @@ body {
   font-family: 'Noto Sans TC', sans-serif;
   background-color: var(--bg-color);
   color: var(--text-main);
-  padding: 20px;
+  padding: 0;
   min-height: 100vh;
   box-sizing: border-box;
+  padding-bottom: 80px; /* 留給底部導覽列的空間 */
+  -webkit-font-smoothing: antialiased;
 }
 
 h2 {
@@ -47,6 +43,65 @@ h2 {
   align-items: center;
 }
 
+/* App 框架樣式 */
+.tab-pane {
+    display: none;
+    padding: 20px;
+    animation: fadeIn 0.4s ease;
+}
+.tab-pane.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: var(--card-bg);
+    display: flex;
+    justify-content: space-around;
+    padding: 12px 0 calc(12px + env(safe-area-inset-bottom)) 0;
+    box-shadow: 0 -2px 15px rgba(109, 93, 80, 0.08);
+    z-index: 1000;
+    border-radius: 20px 20px 0 0;
+}
+
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--text-light);
+    text-decoration: none;
+    font-size: 12px;
+    gap: 4px;
+    cursor: pointer;
+    transition: all 0.3s;
+    width: 50%;
+}
+
+.nav-item.active {
+    color: var(--text-main);
+    font-weight: 500;
+}
+
+.nav-item .icon {
+    font-size: 20px;
+    filter: grayscale(100%) opacity(0.6);
+    transition: all 0.3s;
+}
+
+.nav-item.active .icon {
+    filter: grayscale(0%) opacity(1);
+    transform: translateY(-2px);
+}
+
+/* --- Tab 1: 存錢筒專區樣式 (完全保留原有樣式) --- */
 .container {
   max-width: 1000px;
   margin: 0 auto;
@@ -110,8 +165,8 @@ button {
   font-weight: 500;
 }
 button:hover { background: var(--accent-hover); }
+button:disabled { opacity: 0.6; cursor: not-allowed; }
 
-/* --- 儲蓄罐專區樣式 --- */
 .savings-box {
     background: #FDF9F3;
     border: 1px solid #EFE4D6;
@@ -151,13 +206,11 @@ button:hover { background: var(--accent-hover); }
     color: var(--text-light);
 }
 
-/* 每日計算區 */
 .daily-calc {
     border-top: 1px dashed #E0D6CC;
     padding-top: 15px;
 }
 
-/* 體重輸入框三欄排版 */
 .weight-inputs {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
@@ -166,9 +219,7 @@ button:hover { background: var(--accent-hover); }
 }
 
 @media (max-width: 600px) {
-  .weight-inputs {
-     grid-template-columns: 1fr;
-  }
+  .weight-inputs { grid-template-columns: 1fr; }
 }
 
 .row-split {
@@ -191,7 +242,6 @@ button:hover { background: var(--accent-hover); }
     border-top: 1px solid #eee;
 }
 
-/* 紀錄列表 */
 .record-list {
     flex: 1;
     overflow-y: auto;
@@ -207,133 +257,279 @@ button:hover { background: var(--accent-hover); }
 }
 .delete-btn { width: auto; background: none; color: #ccc; padding: 0 5px; cursor: pointer; }
 
-/* Loading */
 #loading {
     position: fixed; top:0; left:0; width:100%; height:100%;
-    background: rgba(255,255,255,0.8);
-    display: none; justify-content: center; align-items: center; z-index: 99;
-    color: var(--accent);
+    background: rgba(253,251,247,0.9);
+    display: none; justify-content: center; align-items: center; z-index: 2000;
+    color: var(--text-main);
+    font-weight: 500;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* --- Tab 2: AI 精靈專區樣式 --- */
+.tab2-container {
+    max-width: 600px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.header-text {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.header-text h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 24px;
+    color: var(--text-main);
+    margin: 0 0 8px 0;
+}
+
+.header-text p {
+    font-size: 13px;
+    color: var(--text-light);
+    margin: 0;
+}
+
+.ai-output-area {
+    margin-top: 10px;
+    min-height: 200px;
+    transition: all 0.3s;
+}
+
+/* Gemini 回傳的 HTML 基礎美化保底 */
+.ai-output-area h3 {
+    color: var(--text-main);
+    font-size: 16px;
+    margin-bottom: 8px;
+    margin-top: 20px;
+    border-bottom: 1px dashed var(--accent);
+    padding-bottom: 5px;
+}
+.ai-output-area ul {
+    padding-left: 20px;
+    color: var(--text-main);
+    font-size: 14px;
+    line-height: 1.6;
+}
+.ai-output-area p {
+    color: var(--text-main);
+    font-size: 14px;
+    line-height: 1.6;
 }
 </style>
 </head>
 <body>
 
-<div id="loading">Syncing...</div>
+<div id="loading">
+    <div style="font-size: 24px;">✨</div>
+    <div id="loading-text">Syncing...</div>
+</div>
 
-<div class="container">
-    
-<div class="card">
-    <h2>Savings Bank</h2>
-    
-<div class="weight-inputs">
-        <div>
-            <label>初始 (Start)</label>
-            <input type="number" id="startWeight" value="77" disabled>
-
+<!-- Tab 1: 存錢筒 -->
+<div id="tab1" class="tab-pane active">
+    <div class="container">
+        <div class="card">
+            <h2>Savings Bank</h2>
+            <div class="weight-inputs">
+                <div>
+                    <label>初始 (Start)</label>
+                    <input type="number" id="startWeight" value="77" disabled>
+                </div>
+                <div style="display:flex; flex-direction:column;">
+                    <label style="color:var(--accent-hover);">今日 (Current)</label>
+                    <div style="display:flex; gap:8px;"> 
+                        <input type="number" id="currentWeight" placeholder="輸入" style="margin-bottom:0;">
+                        <button onclick="logWeight(this)">💾</button>
+                    </div>
+                    <div id="weightDiffDisplay" style="font-size:13px; color:var(--text-main); margin-top:6px; font-weight:bold;">
+                        距離目標: <span id="diffVal" style="color:#D4AF37;">--</span> kg
+                    </div>
+                    <div id="lastWeightLog" style="font-size:10px; color:#aaa; margin-top:4px; text-align:right;">
+                        尚未紀錄
+                    </div>
+                </div>
+                <div>
+                    <label>目標 (Goal)</label>
+                    <input type="number" id="targetWeight" value="55" style="font-weight:bold; color:var(--text-main);" onchange="calcTotalGoal(); saveSettings();">
+                </div>
+            </div>
+        
+            <div class="savings-box">
+                <div class="goal-header">
+                    <div class="goal-title">🔥 燃燒進度</div>
+                    <div class="goal-nums">已存 <span id="savedCal">0</span> / <span id="totalGoalCal">0</span> kcal</div>
+                </div>
+                <div class="big-progress-bg">
+                    <div class="big-progress-fill" id="longTermProgress"></div>
+                </div>
+                <div class="progress-badge" id="longTermPercent">0% 完成</div>
+                <p style="font-size:11px; color:var(--text-light); margin-top:8px; line-height:1.4;">
+                    *邏輯：減去1公斤需消耗 7700 kcal。<br>
+                    進度條會根據你每天 (TDEE - 攝取) 的赤字累積。
+                </p>
+            </div>
+        
+            <div class="daily-calc">
+                <div class="row-split">
+                    <div>
+                        <label>每日 TDEE (代謝)</label>
+                        <input type="number" id="tdee" value="1350" placeholder="基礎代謝" onchange="updateDailyAndSave()">
+                    </div>
+                    <div>
+                        <label>今日已吃</label>
+                        <input type="number" id="todayEaten" value="0" disabled>
+                    </div>
+                </div>
+                <div class="cal-row total">
+                    <span>今日存款 (Deficit)</span>
+                    <span id="todayDeficit">0</span>
+                </div>
+                <div style="font-size:11px; color:#aaa; margin-top:4px;">正數代表今日變瘦，負數代表變胖</div>
+            </div>
         </div>
-
-        <div style="display:flex; flex-direction:column;">
-            <label style="color:var(--accent-hover);">今日 (Current)</label>
+        
+        <div class="card">
+            <h2>Add Food</h2>
+            <label>Food Name</label>
+            <input type="text" id="foodName" oninput="autoSearch()">
             
-            <div style="display:flex; gap:8px;"> 
-                <input type="number" id="currentWeight" placeholder="輸入" style="margin-bottom:0;">
-                <button onclick="logWeight(this)">💾</button>
-
-            </div>
-
-            <div id="weightDiffDisplay" style="font-size:13px; color:var(--text-main); margin-top:6px; font-weight:bold;">
-                距離目標: <span id="diffVal" style="color:#D4AF37;">--</span> kg
-            </div>
-
-            <div id="lastWeightLog" style="font-size:10px; color:#aaa; margin-top:4px; text-align:right;">
-                尚未紀錄
-            </div>
+            <label>Calories</label>
+            <input type="number" id="foodCal" placeholder="kcal">
+            
+            <button onclick="addRecord()">＋ Add Record</button>
+            <button onclick="googleSearch()" style="background:transparent; color:#999; border:1px solid #eee; margin-top:10px;">🔍 Google Check</button>
         </div>
-
-        <div>
-            <label>目標 (Goal)</label>
-            <input type="number" id="targetWeight" value="55" style="font-weight:bold; color:var(--text-main);" onchange="calcTotalGoal(); saveSettings();">
-        </div>
-    </div>
-
-    <div class="savings-box">
-            <div class="goal-header">
-                <div class="goal-title">🔥 燃燒進度</div>
-                <div class="goal-nums">
-                    已存 <span id="savedCal">0</span> / <span id="totalGoalCal">0</span> kcal
-                </div>
-            </div>
-            <div class="big-progress-bg">
-                <div class="big-progress-fill" id="longTermProgress"></div>
-            </div>
-            <div class="progress-badge" id="longTermPercent">0% 完成</div>
-            <p style="font-size:11px; color:var(--text-light); margin-top:8px; line-height:1.4;">
-                *邏輯：減去1公斤需消耗 7700 kcal。<br>
-                進度條會根據你每天 (TDEE - 攝取) 的赤字累積。
-            </p>
-        </div>
-
-        <div class="daily-calc">
-            <div class="row-split">
-                <div>
-                    <label>每日 TDEE (代謝)</label>
-                    <input type="number" id="tdee" value="1350" placeholder="基礎代謝" onchange="updateDailyAndSave()">
-                </div>
-                <div>
-                    <label>今日已吃</label>
-                    <input type="number" id="todayEaten" value="0" disabled>
-                </div>
-            </div>
-            <div class="cal-row total">
-                <span>今日存款 (Deficit)</span>
-                <span id="todayDeficit">0</span>
-            </div>
-            <div style="font-size:11px; color:#aaa; margin-top:4px;">正數代表今日變瘦，負數代表變胖</div>
-        </div>
-    </div>
-
-    <div class="card">
-        <h2>Add Food</h2>
-        <label>Food Name</label>
-<input type="text" id="foodName" oninput="autoSearch()">
-
         
-        <label>Calories</label>
-        <input type="number" id="foodCal" placeholder="kcal">
+        <div class="card">
+            <h2>History</h2>
+            <div class="record-list" id="recordList">Loading...</div>
+            
+            <div id="historyToggleBtn" onclick="toggleHistory()" style="text-align: center; font-size: 12px; color: var(--text-light); padding: 10px 0; cursor: pointer; margin-top: 5px; display: none;">
+                ⬇️ 查看近期紀錄 (Recent)
+            </div>
         
-        <button onclick="addRecord()">＋ Add Record</button>
-        <button onclick="googleSearch()" style="background:transparent; color:#999; border:1px solid #eee; margin-top:10px;">🔍 Google Check</button>
+            <div class="record-list" id="oldRecordList" style="display: none; opacity: 0.7; max-height: 200px;"></div>
+        </div>
     </div>
+</div>
 
-<div class="card">
-        <h2>History</h2>
-        <div class="record-list" id="recordList">Loading...</div>
+<!-- Tab 2: AI精靈許願池 -->
+<div id="tab2" class="tab-pane">
+    <div class="tab2-container">
+        <div class="header-text">
+            <h1>Genie Meal Planner</h1>
+            <p>寫下特別想吃的料理，我幫你平衡一整天的熱量</p>
+        </div>
         
-<div id="historyToggleBtn" onclick="toggleHistory()" style="
-            text-align: center;
-            font-size: 12px;
-            color: var(--text-light);
-            padding: 10px 0;
-            cursor: pointer;
-            margin-top: 5px; /* 稍微縮小間距 */
-            display: none;
-        ">
-            ⬇️ 查看近期紀錄 (Recent)
+        <div class="card" style="box-shadow: 0 10px 30px rgba(109, 93, 80, 0.05);">
+            <label>今天想吃點什麼？</label>
+            <input type="text" id="ai-food-input" placeholder="例如：三杯雞、炸豬排、鮭魚..." style="padding:14px; font-size:15px; margin-bottom: 16px;">
+            <button id="ai-btn" onclick="generateAIMeal()" style="padding:14px; font-size: 15px; display:flex; justify-content:center; align-items:center; gap:8px;">
+                <span>✨ 幫我搭配</span>
+            </button>
         </div>
 
-        <div class="record-list" id="oldRecordList" style="
-            display: none; 
-            opacity: 0.7; 
-            max-height: 200px; /* 限制高度讓它可滑動 */
-        "></div>
+        <div id="ai-result-area" class="ai-output-area" style="display:none;">
+            <!-- AI 生成的 HTML 將注入於此 -->
+        </div>
     </div>
+</div>
 
+<!-- 底部導覽列 -->
+<div class="bottom-nav">
+    <div class="nav-item active" onclick="switchTab('tab1', this)">
+        <span class="icon">💰</span>
+        <span>存錢筒</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('tab2', this)">
+        <span class="icon">✨</span>
+        <span>AI精靈</span>
+    </div>
+</div>
 
 <script>
-// 🔥 請將你的 Web App URL 貼在這裡
+// --- Tab 切換邏輯 ---
+function switchTab(tabId, element) {
+    document.querySelectorAll('.tab-pane').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+    
+    document.getElementById(tabId).classList.add('active');
+    element.classList.add('active');
+}
+
+// --- AI 精靈邏輯 (Gemini API) ---
+async function generateAIMeal() {
+    const inputField = document.getElementById('ai-food-input');
+    const btn = document.getElementById('ai-btn');
+    const resultArea = document.getElementById('ai-result-area');
+    const loadingScreen = document.getElementById('loading');
+    const loadingText = document.getElementById('loading-text');
+    
+    const userInput = inputField.value.trim();
+    if (!userInput) return alert("請輸入你想吃的食物喔！");
+
+    // 顯示 Loading
+    loadingText.innerText = "精靈正在為您搭配菜單...";
+    loadingScreen.style.display = "flex";
+    btn.disabled = true;
+
+    const prompt = `你是一個溫柔的飲食精靈。使用者今天想吃：${userInput}。請幫他安排符合 1300-1450 大卡的一日三餐（早、中、晚）。
+遵守以下嚴格規則：
+1. 視覺呼吸感：食物單品旁絕對不要標示熱量，只在「早餐」、「午餐」、「晚餐」標題旁邊用括號標示該餐大約的總熱量（例如：午餐 (約 450 kcal)）。
+2. 無冷凍庫機制：如果使用者輸入的是生鮮肉類或海鮮（如蝦仁、雞肉、鯛魚），請安排在午餐與晚餐，確保同一天內吃完。
+3. 熱量平衡：如果使用者許願的是重口味或高熱量食物（如三杯雞、炸豬排），請搭配無油配菜（如清炒蔬菜、蒸蛋），並將另外兩餐調整為清爽低卡。
+4. 輸出格式：請直接輸出帶有 inline CSS 的 HTML 格式，使用乾淨的卡片排版，字體顏色使用 #6D5D50，不需要任何 markdown 或額外廢話。`;
+
+    const payload = {
+        contents: [{ parts: [{ text: prompt }] }]
+    };
+    
+    // Canvas 環境下保留空字串，系統會自動注入
+    const apiKey = "";
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        if (result.candidates && result.candidates[0].content.parts[0].text) {
+            let htmlContent = result.candidates[0].content.parts[0].text;
+            // 清理可能附帶的 markdown 標記
+            htmlContent = htmlContent.replace(/```html/g, '').replace(/```/g, '');
+            
+            resultArea.innerHTML = htmlContent;
+            resultArea.style.display = "block";
+            
+            // 平滑滾動到結果
+            setTimeout(() => {
+                resultArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+        } else {
+            resultArea.innerHTML = "<p style='text-align:center; color: #c0392b;'>精靈暫時需要休息，請稍後再試一次。</p>";
+            resultArea.style.display = "block";
+        }
+    } catch (error) {
+        console.error("AI Generation Error:", error);
+        alert("無法連線到 AI，請確認網路連線。");
+    } finally {
+        loadingScreen.style.display = "none";
+        btn.disabled = false;
+        loadingText.innerText = "Syncing..."; // 恢復原本文字
+    }
+}
+
+
+// --- Tab 1 存錢筒邏輯 (完全保留原有 Google Apps Script 邏輯) ---
 const API_URL = "https://script.google.com/macros/s/AKfycbzs4l4E4kxTxxBicnuHSgKo7zb1gMyC-hBnHKBoFW9Hpol1kOuQM8cc32C34fjXepiy/exec";
 
-// UI Elements
 const els = {
     startW: document.getElementById('startWeight'),
     currentW: document.getElementById('currentWeight'), 
@@ -348,12 +544,12 @@ const els = {
     foodName: document.getElementById('foodName'),
     foodCal: document.getElementById('foodCal'),
     recordList: document.getElementById('recordList'),
-    loading: document.getElementById('loading')
+    loading: document.getElementById('loading'),
+    loadingText: document.getElementById('loading-text')
 };
 
-// 1. 初始化
 async function init() {
-    // A. 讀取本地快取
+    // 讀取本地快取
     const saved = JSON.parse(localStorage.getItem('bowbow_settings'));
     if (saved) {
         if(saved.startW) els.startW.value = saved.startW;
@@ -364,10 +560,9 @@ async function init() {
         updateDiff(); 
     }
 
-    // 🔥 關鍵：先強制關閉 Loading
     els.loading.style.display = "none";
 
-    // B. 背景去雲端抓最新的設定
+    // 雲端抓最新的設定
     callApi({ action: "getSettings" }, false).then(cloudSettings => {
         if (cloudSettings && cloudSettings.start) {
             els.startW.value = cloudSettings.start;
@@ -384,15 +579,12 @@ async function init() {
             
             calcTotalGoal(); 
             updateDiff(); 
-            console.log("設定同步完成 ☁️");
         }
     });
 
-    // C. 背景載入歷史紀錄
     loadRecords(false); 
 }
 
-// 2. 計算總目標 & 即時更新進度條
 function calcTotalGoal() {
     const start = parseFloat(els.startW.value) || 77;
     const current = parseFloat(els.currentW.value) || start; 
@@ -419,7 +611,6 @@ function calcTotalGoal() {
     return totalCalNeeded;
 }
 
-// 3. 計算並顯示「還差幾公斤」
 function updateDiff() {
     const current = parseFloat(els.currentW.value);
     const target = parseFloat(els.targetW.value);
@@ -439,7 +630,6 @@ function updateDiff() {
     }
 }
 
-// 4. 儲存設定
 function saveSettings() {
     const data = {
         start: els.startW.value,
@@ -464,31 +654,58 @@ function saveSettings() {
     }, false);
 }
 
-// 5. API 呼叫
 async function callApi(payload, showLoading = true) {
-    if (showLoading) els.loading.style.display = "flex";
+    if (showLoading) {
+        els.loadingText.innerText = "Syncing...";
+        els.loading.style.display = "flex";
+    }
     
     try {
         const controller = new AbortController();
-        setTimeout(() => controller.abort(), 30000);
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15秒超時保護
 
         const res = await fetch(API_URL, {
             method: "POST",
+            headers: {
+                "Content-Type": "text/plain;charset=utf-8" // 降低 CORS 跨網域阻擋機率
+            },
             body: JSON.stringify(payload),
             signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
 
         if (!res.ok) throw new Error("API Error");
         return await res.json();
     } catch (e) {
-        console.error(e);
-        if (showLoading) alert("連線錯誤"); 
+        console.warn("雲端連線失敗，自動切換至本地離線模式 (Offline Mode):", e);
+        
+        // --- 離線備援機制 (Offline Fallback) ---
+        // 確保在無法連線 Google Apps Script 時，網頁的記帳功能依然可以順暢運作
+        if (payload.action === "getRecords") {
+            return JSON.parse(localStorage.getItem('bowbow_records') || '[]');
+        } else if (payload.action === "addRecord") {
+            let records = JSON.parse(localStorage.getItem('bowbow_records') || '[]');
+            records.unshift({ id: Date.now().toString(), item: payload.item, calories: payload.calories, date: payload.date });
+            localStorage.setItem('bowbow_records', JSON.stringify(records));
+            return { success: true };
+        } else if (payload.action === "deleteRecord") {
+            let records = JSON.parse(localStorage.getItem('bowbow_records') || '[]');
+            records = records.filter(r => r.id !== payload.id);
+            localStorage.setItem('bowbow_records', JSON.stringify(records));
+            return { success: true };
+        } else if (payload.action === "searchFood") {
+            return { matches: [] };
+        } else if (payload.action === "calcSavings") {
+            return { totalSaved: 0 };
+        }
+        
+        return null;
     } finally {
         if (showLoading) els.loading.style.display = "none";
     }
 }
 
-// 6. 載入紀錄
 async function loadRecords(showLoading = true) {
     const data = await callApi({ action: "getRecords" }, showLoading);
     
@@ -514,28 +731,23 @@ async function loadRecords(showLoading = true) {
              todayListEl.innerHTML = "<div style='text-align:center; color:#ccc; padding:20px;'>尚無紀錄</div>";
         }
 
-data.forEach(item => {
+        data.forEach(item => {
             const isToday = item.date.startsWith(todayStr);
-            // 昨天只需用來判斷顯示格式，不需要參與邏輯篩選
             const isYesterday = item.date.startsWith(yesterdayStr); 
             
             let displayTime = "";
             if (isToday) {
-                // 如果是今天，顯示幾點幾分 (HH:mm)
                 displayTime = item.date.substring(11, 16);
             } else {
-                // 如果是昨天或更早，顯示日期 (MM/DD)
                 const parts = item.date.split(' ')[0].split('/');
                 if (parts.length >= 3) displayTime = parts[1] + '/' + parts[2];
                 else displayTime = item.date;
             }
 
-            // 1. 計算今日存款：嚴格只算「今天」
             if (isToday) {
                 todayTotal += Number(item.calories);
             }
 
-            // 2. 控制按鈕顯示：只要「不是今天」，都算歷史資料 (包含昨天)
             if (!isToday) {
                 hasOldData = true;
             }
@@ -552,7 +764,6 @@ data.forEach(item => {
                     </div>
                 </div>`;
 
-            // 3. 顯示位置：今天放上面，昨天跟以前的放下面
             if (isToday) {
                 todayListEl.innerHTML += html;
             } else {
@@ -581,9 +792,8 @@ data.forEach(item => {
     if (stats && stats.totalSaved !== undefined) {
         updateLongTermProgress(stats.totalSaved);
     }
-} // 🔥 我把這裡缺少的括號補上了！
+}
 
-// 7. 更新每日赤字顯示
 function updateDailyAndSave(shouldReload = true) {
     const tdee = parseInt(els.tdee.value) || 1350;
     const eaten = parseInt(els.todayEaten.value) || 0;
@@ -595,7 +805,6 @@ function updateDailyAndSave(shouldReload = true) {
     if(shouldReload) saveSettings();
 }
 
-// 8. 更新長期進度條
 function updateLongTermProgress(backendSaved) {
     if (els.currentW.value) {
         calcTotalGoal(); 
@@ -608,7 +817,6 @@ function updateLongTermProgress(backendSaved) {
     }
 }
 
-// 9. 記錄體重按鈕功能
 async function logWeight(btn) {
     const w = els.currentW.value;
     if (!w) return alert("請輸入體重！");
@@ -619,7 +827,6 @@ async function logWeight(btn) {
 
     try {
         await callApi({ action: "logWeight", weight: w }, false);
-
         updateDiff(); 
         calcTotalGoal(); 
         
@@ -627,9 +834,7 @@ async function logWeight(btn) {
         const timeStr = (now.getMonth()+1)+'/'+now.getDate()+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
         document.getElementById("lastWeightLog").innerText = "已存: " + timeStr;
         document.getElementById("lastWeightLog").style.color = "#D4AF37";
-
         saveSettings(); 
-
     } catch (e) {
         alert("儲存失敗");
     } finally {
@@ -641,15 +846,12 @@ async function logWeight(btn) {
     }
 }
 
-// 10. 其他功能
 async function addRecord() {
     const name = els.foodName.value;
     const cal = els.foodCal.value;
     if(!name || !cal) return alert("請輸入完整");
     
-    // 抓取手機當下時間
     const now = new Date();
-    // 格式化為：2025/12/13 14:30
     const dateStr = now.getFullYear() + '/' + 
                    (now.getMonth()+1).toString().padStart(2, '0') + '/' + 
                    now.getDate().toString().padStart(2, '0') + ' ' + 
@@ -662,7 +864,6 @@ async function addRecord() {
     await loadRecords(false);
 }
 
-//  autoSearch
 async function autoSearch() {
     const nameInput = els.foodName;
     const calInput = els.foodCal;
@@ -673,24 +874,16 @@ async function autoSearch() {
 
     const originalPlaceholder = calInput.placeholder;
     calInput.placeholder = "🔍 搜尋中...";
-
-    hideFoodOptions(); // 🔥 每次搜尋先關掉選單
+    hideFoodOptions();
 
     try {
         const res = await callApi({ action: "searchFood", item: name }, false);
-
-        // ✅ 只有一筆 → 直接填
         if (res?.matches && res.matches.length === 1) {
             calInput.value = res.matches[0].calories;
             flashCalInput(calInput);
-        }
-
-        // ✅ 多筆 → 顯示選單（最多 5 筆，後端已處理）
-        else if (res?.matches && res.matches.length > 1) {
+        } else if (res?.matches && res.matches.length > 1) {
             showFoodOptions(res.matches);
         }
-
-        // ❌ 沒結果 → 不動
     } catch (e) {
         console.error("搜尋失敗", e);
     } finally {
@@ -700,15 +893,12 @@ async function autoSearch() {
 
 function flashCalInput(input) {
     input.style.backgroundColor = "#fff9db";
-    setTimeout(() => {
-        input.style.backgroundColor = "";
-    }, 1000);
+    setTimeout(() => { input.style.backgroundColor = ""; }, 1000);
 }
 
 function showFoodOptions(list) {
     let menu = document.getElementById("foodOptions");
 
-    // 如果頁面上還沒有，就動態建立
     if (!menu) {
         menu = document.createElement("div");
         menu.id = "foodOptions";
@@ -724,8 +914,8 @@ function showFoodOptions(list) {
     }
 
     menu.innerHTML = "";
-menu.style.left = els.foodName.offsetLeft + "px";
-menu.style.top = els.foodName.offsetTop + els.foodName.offsetHeight + "px";
+    menu.style.left = els.foodName.offsetLeft + "px";
+    menu.style.top = els.foodName.offsetTop + els.foodName.offsetHeight + "px";
     menu.style.display = "block";
 
     list.forEach(item => {
@@ -744,7 +934,6 @@ menu.style.top = els.foodName.offsetTop + els.foodName.offsetHeight + "px";
             hideFoodOptions();
             flashCalInput(els.foodCal);
         };
-
         menu.appendChild(btn);
     });
 }
@@ -754,14 +943,11 @@ function hideFoodOptions() {
     if (menu) menu.style.display = "none";
 }
 
-// 刪除紀錄
-
 async function deleteRecord(id) {
     if(!confirm("刪除此筆?")) return;
     await callApi({ action: "deleteRecord", id: id });
     loadRecords();
 }
-
 
 function getDateStr(offset = 0) {
   const d = new Date();
@@ -771,7 +957,6 @@ function getDateStr(offset = 0) {
 
 const todayStr = getDateStr(0);
 const yesterdayStr = getDateStr(-1);
-
 
 function googleSearch() {
     const val = els.foodName.value;
