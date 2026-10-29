@@ -394,6 +394,9 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
         
         <div class="card">
             <h2>Add Food</h2>
+            <label>記錄時間 (Date & Time)</label>
+            <input type="datetime-local" id="foodDateTime">
+
             <label>Food Name</label>
             <input type="text" id="foodName" oninput="autoSearch()">
             
@@ -599,7 +602,7 @@ async function generateAIMenu(mode) {
     let apiKey = localStorage.getItem('bowbow_gemini_key');
     
     if (!apiKey) {
-        apiKey = prompt("✨ 初次喚醒精靈！\\n請貼上您的 Gemini API 金鑰：\\n(只需輸入一次，會安全儲存在您的設備中)");
+        apiKey = prompt("✨ 初次喚醒精靈！\n請貼上您的 Gemini API 金鑰：\n(只需輸入一次，會安全儲存在您的設備中)");
         if (!apiKey) {
             return; // 若使用者按取消，則停止執行
         }
@@ -610,16 +613,27 @@ async function generateAIMenu(mode) {
     let promptText = "";
     const tdeeVal = parseInt(document.getElementById('tdee').value) || 1350;
 
+    // --- ★★★ 核心升級：抓取今日已吃資訊 ★★★ ---
+    const now = new Date();
+    const realTodayStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
+    const todaysRecords = globalRecordsData.filter(r => r.date.startsWith(realTodayStr));
+    
+    let todaysFoodText = todaysRecords.length > 0 
+        ? todaysRecords.map(r => `${r.item}(${r.calories}kcal)`).join('、') 
+        : '尚未紀錄任何食物';
+    let todayTotalCal = parseInt(document.getElementById('todayEaten').value) || 0;
+    let remainCal = tdeeVal - todayTotalCal;
+
     if (mode === 'random') {
         promptText = `使用者的基礎代謝(TDEE)為 ${tdeeVal} 大卡。昨天她攝取了 ${yesterdayEatenVal} 大卡。
-請根據昨日熱量幫她隨機安排今日三餐：若昨天吃超過TDEE，今天菜單請清爽些(總計約1200-1300大卡)；若沒有，維持 1300-1450 大卡。
+今天她已經紀錄吃了：${todaysFoodText}，共 ${todayTotalCal} 大卡。今天剩下約 ${remainCal} 大卡的額度。
+請根據昨日熱量與今日剩餘額度，幫她隨機安排「今天剩下的餐點」（例如：若已吃過早餐，請只安排午晚餐；若快超標，請安排清爽菜單）。
 嚴格規則：
-1. 無冷凍庫機制：若安排生鮮海產（如蝦仁、鯛魚），必須確保同類食材在當天午晚餐內完食。
+1. 無冷凍庫機制：若安排生鮮海產（如蝦仁、鯛魚），必須確保同類食材在當天內完食。
 2. 格式要求：請回傳合法的 JSON 格式（不要有 markdown 符號如 \`\`\`json），結構如下：
 {
-  "message": "依據昨日熱量給予的一句溫馨短語，例如：昨天稍微吃多了點，今天幫你安排清爽的菜單！",
+  "message": "一句溫馨短語，例如：今天早上吃了蛋餅，午晚餐幫你配清淡一點喔！",
   "menu": [
-    {"meal": "早餐", "name": "水煮蛋2顆、無糖豆漿", "calories": 250},
     {"meal": "午餐", "name": "雞胸肉1掌、白飯半碗", "calories": 400},
     {"meal": "晚餐", "name": "板豆腐半盒、蝦仁湯", "calories": 300}
   ]
@@ -628,15 +642,15 @@ async function generateAIMenu(mode) {
         const food = wishInput.value.trim();
         if (!food) return alert("請輸入想吃的料理喔！");
         promptText = `使用者的基礎代謝(TDEE)為 ${tdeeVal} 大卡。昨天她攝取了 ${yesterdayEatenVal} 大卡。
-今天她許願想吃：${food}。請排入菜單並平衡整日熱量(1300-1450大卡)。若許願重口味食物，請搭配無油配菜。
+今天她已經紀錄吃了：${todaysFoodText}，共 ${todayTotalCal} 大卡。今天剩下約 ${remainCal} 大卡的額度。
+現在她許願想吃：${food}。請將此料理排入剩下的餐點中，並利用剩下的額度幫她平衡熱量。若許願重口味食物，請搭配無油配菜。
 嚴格規則：
 請回傳合法的 JSON 格式（不要有 markdown 符號如 \`\`\`json），把許願的菜色排入其中，結構如下：
 {
-  "message": "依據許願料理與昨日熱量給予的一句溫馨短語，例如：三杯雞安排上囉！配上清爽的蔬菜剛剛好！",
+  "message": "一句溫馨短語，例如：三杯雞安排在晚餐囉！午餐幫你配清爽的蔬菜平衡一下！",
   "menu": [
-    {"meal": "早餐", "name": "無糖優格、香蕉", "calories": 220},
-    {"meal": "午餐", "name": "${food} (許願主餐)", "calories": 600},
-    {"meal": "午餐", "name": "清炒蔬菜、無油蒸蛋", "calories": 150}
+    {"meal": "午餐", "name": "清炒蔬菜、無油蒸蛋", "calories": 150},
+    {"meal": "晚餐", "name": "${food} (許願主餐)", "calories": 600}
   ]
 }`;
     }
@@ -766,10 +780,20 @@ const els = {
     todayDeficit: document.getElementById('todayDeficit'),
     foodName: document.getElementById('foodName'),
     foodCal: document.getElementById('foodCal'),
+    foodDateTime: document.getElementById('foodDateTime'),
     loading: document.getElementById('loading')
 };
 
+function resetDateTimeField() {
+    const now = new Date();
+    // 調整時區偏差以符合 datetime-local 格式 (YYYY-MM-DDTHH:mm)
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    els.foodDateTime.value = now.toISOString().slice(0, 16);
+}
+
 async function init() {
+    resetDateTimeField(); // 初始化時設定為現在時間
+
     const saved = JSON.parse(localStorage.getItem('bowbow_settings'));
     if (saved) {
         if(saved.startW) els.startW.value = saved.startW;
@@ -863,6 +887,12 @@ async function callApi(payload, showLoading = true) {
             localStorage.setItem('bowbow_records', JSON.stringify(recs));
             return { success: true };
         }
+        if (payload.action === "deleteRecord") {
+            let recs = JSON.parse(localStorage.getItem('bowbow_records') || '[]');
+            recs = recs.filter(r => r.id.toString() !== payload.id.toString());
+            localStorage.setItem('bowbow_records', JSON.stringify(recs));
+            return { success: true };
+        }
         return null;
     } finally {
         if (showLoading) els.loading.style.display = "none";
@@ -951,11 +981,20 @@ async function logWeight(btn) {
 async function addRecord() {
     const name = els.foodName.value;
     const cal = els.foodCal.value;
-    if(!name || !cal) return alert("請輸入完整");
-    const now = new Date();
-    const dateStr = now.getFullYear() + '/' + (now.getMonth()+1).toString().padStart(2, '0') + '/' + now.getDate().toString().padStart(2, '0') + ' ' + now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+    const dtVal = els.foodDateTime.value;
+    if(!name || !cal || !dtVal) return alert("請輸入完整名稱、熱量與時間！");
+    
+    // 解析選擇的時間
+    const d = new Date(dtVal);
+    const dateStr = d.getFullYear() + '/' + 
+                   (d.getMonth()+1).toString().padStart(2, '0') + '/' + 
+                   d.getDate().toString().padStart(2, '0') + ' ' + 
+                   d.getHours().toString().padStart(2, '0') + ':' + 
+                   d.getMinutes().toString().padStart(2, '0');
+                   
     await callApi({ action: "addRecord", item: name, calories: cal, date: dateStr });
     els.foodName.value = ""; els.foodCal.value = "";
+    resetDateTimeField(); // 新增完恢復成現在時間
     await loadRecords(false);
 }
 
@@ -971,9 +1010,19 @@ async function autoSearch() {
 }
 
 async function deleteRecord(id) {
-    if(!confirm("刪除此筆?")) return;
-    await callApi({ action: "deleteRecord", id: id });
-    loadRecords();
+    if(!confirm("確定要刪除這筆紀錄嗎？")) return;
+    
+    document.getElementById('loading-text').innerText = "刪除中...";
+    document.getElementById('loading').style.display = "flex";
+    
+    try {
+        await callApi({ action: "deleteRecord", id: id }, false);
+        await loadRecords(false);
+    } catch (e) {
+        alert("刪除時發生錯誤，請稍後再試。");
+    } finally {
+        document.getElementById('loading').style.display = "none";
+    }
 }
 
 function googleSearch() {
