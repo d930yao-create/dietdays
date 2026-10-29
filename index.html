@@ -723,14 +723,20 @@ async function generateAIMenu(mode) {
 
 // 檢查勾選總熱量是否過低
 function checkTotalSelectedCalories() {
-    let total = 0;
+    let selectedTotal = 0;
     document.querySelectorAll('.menu-checkbox:checked').forEach(chk => {
-        total += parseInt(chk.value) || 0;
+        selectedTotal += parseInt(chk.value) || 0;
     });
+    
+    // 抓取今天已經攝取的總熱量
+    const alreadyEaten = parseInt(document.getElementById('todayEaten').value) || 0;
+    // 預計的今日總和 = 已經吃的 + 現在勾選的
+    const totalForToday = alreadyEaten + selectedTotal;
+
     const warningEl = document.getElementById('low-calorie-warning');
     if (warningEl) {
-        if (total > 0 && total < 1100) {
-            warningEl.innerHTML = "⚠️ 今天選的份量有點少喔！精靈建議可以再多喝一杯無糖豆漿，或加顆茶葉蛋，保護身體代謝喔！✨";
+        if (selectedTotal > 0 && totalForToday < 1100) {
+            warningEl.innerHTML = `⚠️ 加上目前勾選的，今天總熱量 (約 ${totalForToday} 大卡) 依然偏低喔！精靈建議可以再加顆蛋或豆漿保護代謝！✨`;
             warningEl.style.display = "block";
         } else {
             warningEl.style.display = "none";
