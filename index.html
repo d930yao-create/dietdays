@@ -83,7 +83,7 @@ h2 {
     gap: 4px;
     cursor: pointer;
     transition: all 0.3s;
-    width: 50%;
+    width: 33.33%; /* 分成三等份 */
 }
 
 .nav-item.active {
@@ -259,6 +259,19 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 }
 .delete-btn { width: auto; background: none; color: #ccc; padding: 0 5px; cursor: pointer; }
 
+/* 日曆專屬樣式 */
+.calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-weight: bold; color: var(--text-main); }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; font-size: 13px; }
+.calendar-day-name { font-size: 11px; color: var(--text-light); margin-bottom: 5px; font-weight: 600;}
+.calendar-day { padding: 10px 0; border-radius: 8px; cursor: pointer; transition: background 0.2s; position: relative; color: var(--text-main); }
+.calendar-day:hover { background: #F7F3EF; }
+.calendar-day.selected { background: var(--accent); color: white; font-weight: bold; }
+.calendar-day.over-budget { color: #c0392b; font-weight: bold; }
+.calendar-day.selected.over-budget { background: #c0392b; color: white; }
+.calendar-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); position: absolute; bottom: 2px; left: calc(50% - 2px); }
+.calendar-day.over-budget .calendar-dot { background: #c0392b; }
+.calendar-day.selected .calendar-dot { background: white; }
+
 #loading {
     position: fixed; top:0; left:0; width:100%; height:100%;
     background: rgba(253,251,247,0.9);
@@ -390,34 +403,36 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
             <button onclick="addRecord()">＋ Add Record</button>
             <button onclick="googleSearch()" style="background:transparent; color:#999; border:1px solid #eee; margin-top:10px;">🔍 Google Check</button>
         </div>
+    </div>
+</div>
+
+<!-- Tab 2: 行事曆 (Calendar) -->
+<div id="tab2" class="tab-pane">
+    <div class="container">
+        <div class="card">
+            <h2>Calendar</h2>
+            <div class="calendar-header">
+                <button onclick="changeMonth(-1)" style="width:auto; padding:5px 15px; background:transparent; color:var(--text-light); font-size: 18px;">◀</button>
+                <span id="calendar-month-year" style="font-size: 16px; letter-spacing: 1px;">2025 年 1 月</span>
+                <button onclick="changeMonth(1)" style="width:auto; padding:5px 15px; background:transparent; color:var(--text-light); font-size: 18px;">▶</button>
+            </div>
+            <div class="calendar-grid" id="calendar-grid"></div>
+        </div>
         
         <div class="card">
-            <h2>History</h2>
-            <div class="record-list" id="recordList">Loading...</div>
-            <div id="historyToggleBtn" onclick="toggleHistory()" style="text-align: center; font-size: 12px; color: var(--text-light); padding: 10px 0; cursor: pointer; margin-top: 5px; display: none;">
-                ⬇️ 查看近期紀錄
+            <h2 id="selected-date-title" style="font-size:18px;">選擇日期</h2>
+            <div class="record-list" id="calendarRecordList">
+                <div style="text-align:center; color:#ccc; padding:20px;">載入中...</div>
             </div>
-            <div class="record-list" id="oldRecordList" style="display: none; opacity: 0.7; max-height: 200px;"></div>
+            <div style="text-align:right; font-weight:bold; margin-top:10px; font-size:14px; border-top:1px dashed #eee; padding-top:10px; color:var(--text-main);">
+                單日總計: <span id="selected-date-total">0</span> kcal
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Tab 2: AI精靈許願池 -->
-<div id="tab2" class="tab-pane">
-    <div class="tab2-container">
-        <div class="header-text">
-            <h1>Genie Meal Planner</h1>
-            <p>隨機抽籤或許願想吃的料理，精靈幫你智慧平衡熱量</p>
-        </div>
-        
-        <div class="card" style="box-shadow: 0 10px 30px rgba(109, 93, 80, 0.05); gap: 12px;">
-            <div style="display: flex; gap: 10px;">
-                <button onclick="generateAIMenu('random')" style="background: var(--text-main);">🎲 隨機安排今日菜單</button>
-            </div>
-            <div style="border-top: 1px dashed #E0D6CC; padding-top: 12px; margin-top: 5px;">
-                <label>或者許願想吃的一道菜：</label>
-                <input type="text" id="ai-food-input" placeholder="例如：三杯雞、炸豬排..." style="padding:12px; font-size:14px; margin-bottom: 10px;">
-                <button id="ai-btn" onclick="generateAIMenu('wish')">✨ 許願搭配</button>
+<!-- Tab 3: AI精靈許願池 -->
+<div id="tab3" class="tab-pane">
             </div>
         </div>
 
@@ -430,12 +445,16 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 <!-- 底部導覽列 -->
 <div class="bottom-nav">
     <div class="nav-item active" onclick="switchTab('tab1', this)">
-        <span class="icon">💰</span>
-        <span>存錢筒</span>
+        <span class="icon">🏠</span>
+        <span>首頁</span>
     </div>
     <div class="nav-item" onclick="switchTab('tab2', this)">
+        <span class="icon">📅</span>
+        <span>日曆</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('tab3', this)">
         <span class="icon">✨</span>
-        <span>AI精靈</span>
+        <span>精靈</span>
     </div>
 </div>
 
@@ -443,14 +462,116 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 // --- Google Apps Script 雲端同步連結 ---
 const API_URL = "https://script.google.com/macros/s/AKfycbzs4l4E4kxTxxBicnuHSgKo7zb1gMyC-hBnHKBoFW9Hpol1kOuQM8cc32C34fjXepiy/exec";
 
-// 宣告全域變數來記錄昨天的熱量
+// 全域變數
 let yesterdayEatenVal = 0;
+let globalRecordsData = []; // 儲存所有撈回來的歷史紀錄
+let currentCalDate = new Date(); // 日曆當前顯示的月份
+let selectedCalDateStr = `${currentCalDate.getFullYear()}/${String(currentCalDate.getMonth() + 1).padStart(2, '0')}/${String(currentCalDate.getDate()).padStart(2, '0')}`; // 目前選中的日期
 
 function switchTab(tabId, element) {
     document.querySelectorAll('.tab-pane').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
     document.getElementById(tabId).classList.add('active');
     element.classList.add('active');
+    
+    // 若切換到日曆，重新渲染確保高度與資料正確
+    if(tabId === 'tab2') {
+        renderCalendar();
+    }
+}
+
+// --- 日曆功能 ---
+function renderCalendar() {
+    const year = currentCalDate.getFullYear();
+    const month = currentCalDate.getMonth();
+    document.getElementById('calendar-month-year').innerText = `${year} 年 ${month + 1} 月`;
+
+    const firstDay = new Date(year, month, 1).getDay(); // 當月第一天是星期幾
+    const daysInMonth = new Date(year, month + 1, 0).getDate(); // 當月有幾天
+    
+    const grid = document.getElementById('calendar-grid');
+    grid.innerHTML = '';
+
+    // 星期表頭
+    const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
+    dayNames.forEach(d => {
+        grid.innerHTML += `<div class="calendar-day-name">${d}</div>`;
+    });
+
+    // 結算每日總熱量以判定是否超標
+    const tdeeVal = parseInt(document.getElementById('tdee').value) || 1350;
+    let dailySums = {};
+    globalRecordsData.forEach(item => {
+        let dKey = item.date.substring(0, 10); // 取得 YYYY/MM/DD
+        dailySums[dKey] = (dailySums[dKey] || 0) + Number(item.calories);
+    });
+
+    // 補足前面的空白格
+    for (let i = 0; i < firstDay; i++) {
+        grid.innerHTML += `<div></div>`;
+    }
+
+    // 渲染日期格子
+    for (let d = 1; d <= daysInMonth; d++) {
+        let dateStr = `${year}/${String(month + 1).padStart(2, '0')}/${String(d).padStart(2, '0')}`;
+        let sum = dailySums[dateStr] || 0;
+        let isOver = sum > tdeeVal;
+        let isSelected = dateStr === selectedCalDateStr;
+        let hasData = sum > 0;
+        
+        let classes = 'calendar-day';
+        if (isOver) classes += ' over-budget'; // 超標變紅色
+        if (isSelected) classes += ' selected'; // 選取狀態
+
+        let dotHtml = hasData ? `<div class="calendar-dot"></div>` : '';
+
+        grid.innerHTML += `<div class="${classes}" onclick="selectDate('${dateStr}')">${d}${dotHtml}</div>`;
+    }
+}
+
+function changeMonth(delta) {
+    currentCalDate.setMonth(currentCalDate.getMonth() + delta);
+    renderCalendar();
+}
+
+function selectDate(dateStr) {
+    selectedCalDateStr = dateStr;
+    renderCalendar();
+    renderHistoryForDate(dateStr);
+}
+
+function renderHistoryForDate(dateStr) {
+    document.getElementById('selected-date-title').innerText = dateStr;
+    const listEl = document.getElementById('calendarRecordList');
+    listEl.innerHTML = '';
+    
+    let total = 0;
+    let records = globalRecordsData.filter(item => item.date.startsWith(dateStr));
+    
+    if (records.length === 0) {
+        listEl.innerHTML = '<div style="text-align:center; color:#ccc; padding:20px;">尚無紀錄</div>';
+    } else {
+        records.forEach(item => {
+            total += Number(item.calories);
+            let displayTime = item.date.substring(11, 16) || '--:--';
+            listEl.innerHTML += `
+                <div class="record-item">
+                    <div>
+                        <div style="font-weight:500; color:var(--text-main);">${item.item}</div>
+                        <div style="font-size:11px; color:var(--text-light);">${displayTime}</div>
+                    </div>
+                    <div style="display:flex; align-items:center;">
+                        <span style="color:var(--accent-hover); font-weight:500; margin-right:5px;">${item.calories}</span>
+                        <button class="delete-btn" onclick="deleteRecord('${item.id}')">×</button>
+                    </div>
+                </div>`;
+        });
+    }
+    
+    const tdeeVal = parseInt(document.getElementById('tdee').value) || 1350;
+    const totalEl = document.getElementById('selected-date-total');
+    totalEl.innerText = total;
+    totalEl.style.color = total > tdeeVal ? '#c0392b' : 'var(--text-main)';
 }
 
 // --- 智慧 AI 精靈：參考昨日熱量並可勾選匯入 ---
@@ -612,6 +733,7 @@ async function importSelectedMeals() {
 
     document.getElementById('loading').style.display = "none";
     alert("成功加入今日帳本！");
+    // 切換回首頁查看進度
     switchTab('tab1', document.querySelectorAll('.nav-item')[0]);
     loadRecords(false);
 }
@@ -630,7 +752,6 @@ const els = {
     todayDeficit: document.getElementById('todayDeficit'),
     foodName: document.getElementById('foodName'),
     foodCal: document.getElementById('foodCal'),
-    recordList: document.getElementById('recordList'),
     loading: document.getElementById('loading')
 };
 
@@ -737,58 +858,36 @@ async function callApi(payload, showLoading = true) {
 async function loadRecords(showLoading = true) {
     const data = await callApi({ action: "getRecords" }, showLoading);
     let todayTotal = 0;
-    yesterdayEatenVal = 0; // 歸零重新計算
+    yesterdayEatenVal = 0; 
+    
+    if (Array.isArray(data)) {
+        globalRecordsData = data; // 存入全域供日曆使用
+    } else {
+        globalRecordsData = [];
+    }
 
     const now = new Date();
     const todayStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`; 
     
-    // 計算昨天的日期字串
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = `${yesterday.getFullYear()}/${String(yesterday.getMonth() + 1).padStart(2, '0')}/${String(yesterday.getDate()).padStart(2, '0')}`;
 
-    const todayListEl = document.getElementById("recordList"); 
-    const oldListEl = document.getElementById("oldRecordList"); 
-    const toggleBtn = document.getElementById("historyToggleBtn"); 
+    globalRecordsData.forEach(item => {
+        const isToday = item.date.startsWith(todayStr);
+        const isYesterday = item.date.startsWith(yesterdayStr);
+
+        if (isToday) todayTotal += Number(item.calories);
+        if (isYesterday) yesterdayEatenVal += Number(item.calories);
+    });
     
-    todayListEl.innerHTML = "";
-    if(oldListEl) oldListEl.innerHTML = ""; 
-    let hasOldData = false;
-
-    if (Array.isArray(data)) {
-        if (data.length === 0) todayListEl.innerHTML = "<div style='text-align:center; color:#ccc; padding:20px;'>尚無紀錄</div>";
-
-        data.forEach(item => {
-            const isToday = item.date.startsWith(todayStr);
-            const isYesterday = item.date.startsWith(yesterdayStr);
-
-            let displayTime = isToday ? item.date.substring(11, 16) : item.date.split(' ')[0];
-            
-            if (isToday) todayTotal += Number(item.calories);
-            else hasOldData = true;
-
-            // 如果是昨天的紀錄，就加總起來給 AI 參考
-            if (isYesterday) yesterdayEatenVal += Number(item.calories);
-
-            const html = `
-                <div class="record-item">
-                    <div>
-                        <div style="font-weight:500;">${item.item}</div>
-                        <div style="font-size:11px; color:#aaa;">${displayTime}</div>
-                    </div>
-                    <div style="display:flex; align-items:center;">
-                        <span style="color:var(--accent-hover); font-weight:500; margin-right:5px;">${item.calories}</span>
-                        <button class="delete-btn" onclick="deleteRecord('${item.id}')">×</button>
-                    </div>
-                </div>`;
-            if (isToday) todayListEl.innerHTML += html;
-            else if(oldListEl) oldListEl.innerHTML += html;
-        });
-    }
-    
-    if (toggleBtn) toggleBtn.style.display = hasOldData ? "block" : "none";
+    // 更新首頁的今日已吃
     els.todayEaten.value = todayTotal;
     updateDailyAndSave(false); 
+
+    // 更新日曆畫面與選定日期的列表
+    renderCalendar();
+    renderHistoryForDate(selectedCalDateStr);
 
     const stats = await callApi({ action: "calcSavings", tdee: els.tdee.value }, false); 
     if (stats && stats.totalSaved !== undefined) updateLongTermProgress(stats.totalSaved);
@@ -866,18 +965,6 @@ async function deleteRecord(id) {
 function googleSearch() {
     const val = els.foodName.value;
     if(val) window.open(`https://www.google.com/search?q=${val}+熱量`);
-}
-
-function toggleHistory() {
-    const oldList = document.getElementById("oldRecordList");
-    const btn = document.getElementById("historyToggleBtn");
-    if (oldList.style.display === "none") {
-        oldList.style.display = "block";
-        btn.innerText = "⬆️ 收起紀錄";
-    } else {
-        oldList.style.display = "none";
-        btn.innerText = "⬇️ 查看近期紀錄";
-    }
 }
 
 window.onload = init;
