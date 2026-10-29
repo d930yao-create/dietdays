@@ -433,6 +433,20 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 
 <!-- Tab 3: AI精靈許願池 -->
 <div id="tab3" class="tab-pane">
+    <div class="tab2-container">
+        <div class="header-text">
+            <h1>Genie Meal Planner</h1>
+            <p>隨機抽籤或許願想吃的料理，精靈幫你智慧平衡熱量</p>
+        </div>
+        
+        <div class="card" style="box-shadow: 0 10px 30px rgba(109, 93, 80, 0.05); gap: 12px;">
+            <div style="display: flex; gap: 10px;">
+                <button onclick="generateAIMenu('random')" style="background: var(--text-main);">🎲 隨機安排今日菜單</button>
+            </div>
+            <div style="border-top: 1px dashed #E0D6CC; padding-top: 12px; margin-top: 5px;">
+                <label>或者許願想吃的一道菜：</label>
+                <input type="text" id="ai-food-input" placeholder="例如：三杯雞、炸豬排..." style="padding:12px; font-size:14px; margin-bottom: 10px;">
+                <button id="ai-btn" onclick="generateAIMenu('wish')">✨ 許願搭配</button>
             </div>
         </div>
 
