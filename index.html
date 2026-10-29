@@ -443,6 +443,9 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 // --- Google Apps Script 雲端同步連結 ---
 const API_URL = "https://script.google.com/macros/s/AKfycbzs4l4E4kxTxxBicnuHSgKo7zb1gMyC-hBnHKBoFW9Hpol1kOuQM8cc32C34fjXepiy/exec";
 
+// 宣告全域變數來記錄昨天的熱量
+let yesterdayEatenVal = 0;
+
 function switchTab(tabId, element) {
     document.querySelectorAll('.tab-pane').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
@@ -457,41 +460,56 @@ async function generateAIMenu(mode) {
     const loadingText = document.getElementById('loading-text');
     const wishInput = document.getElementById('ai-food-input');
 
-    let prompt = "";
-    const todayEatenVal = parseInt(document.getElementById('todayEaten').value) || 0;
+    // ★★★ 安全的金鑰讀取機制 ★★★
+    let apiKey = localStorage.getItem('bowbow_gemini_key');
+    
+    if (!apiKey) {
+        apiKey = prompt("✨ 初次喚醒精靈！\\n請貼上您的 Gemini API 金鑰：\\n(只需輸入一次，會安全儲存在您的設備中)");
+        if (!apiKey) {
+            return; // 若使用者按取消，則停止執行
+        }
+        // 儲存到瀏覽器本地端
+        localStorage.setItem('bowbow_gemini_key', apiKey.trim());
+    }
+
+    let promptText = "";
+    const tdeeVal = parseInt(document.getElementById('tdee').value) || 1350;
 
     if (mode === 'random') {
-        prompt = `使用者今天想要隨機安排一日三餐。昨天攝取熱量大約是 ${todayEatenVal} 大卡。請幫她設計符合總熱量 1300-1450 大卡的早、中、晚餐菜單。
+        promptText = `使用者的基礎代謝(TDEE)為 ${tdeeVal} 大卡。昨天她攝取了 ${yesterdayEatenVal} 大卡。
+請根據昨日熱量幫她隨機安排今日三餐：若昨天吃超過TDEE，今天菜單請清爽些(總計約1200-1300大卡)；若沒有，維持 1300-1450 大卡。
 嚴格規則：
-1. 無冷凍庫機制：若安排了生鮮海產（如蝦仁、鯛魚），必須確保同類食材在當天午晚餐內完食。
+1. 無冷凍庫機制：若安排生鮮海產（如蝦仁、鯛魚），必須確保同類食材在當天午晚餐內完食。
 2. 格式要求：請回傳合法的 JSON 格式（不要有 markdown 符號如 \`\`\`json），結構如下：
-[
-  {"meal": "早餐", "name": "水煮蛋2顆、無糖豆漿", "calories": 250},
-  {"meal": "早餐", "name": "全麥吐司1片", "calories": 150},
-  {"meal": "午餐", "name": "雞胸肉1掌、白飯半碗", "calories": 400},
-  {"meal": "午餐", "name": "燙青江菜2碗", "calories": 60},
-  {"meal": "晚餐", "name": "板豆腐半盒、蝦仁湯", "calories": 300},
-  {"meal": "晚餐", "name": "白飯半碗", "calories": 140}
-]`;
+{
+  "message": "依據昨日熱量給予的一句溫馨短語，例如：昨天稍微吃多了點，今天幫你安排清爽的菜單！",
+  "menu": [
+    {"meal": "早餐", "name": "水煮蛋2顆、無糖豆漿", "calories": 250},
+    {"meal": "午餐", "name": "雞胸肉1掌、白飯半碗", "calories": 400},
+    {"meal": "晚餐", "name": "板豆腐半盒、蝦仁湯", "calories": 300}
+  ]
+}`;
     } else {
         const food = wishInput.value.trim();
         if (!food) return alert("請輸入想吃的料理喔！");
-        prompt = `使用者今天許願想吃：${food}。昨天攝取熱量大約是 ${todayEatenVal} 大卡。請幫她安排一整天菜單，若許願的是重口味食物，請搭配無油配菜並平衡整天熱量在 1300-1450 大卡內。
+        promptText = `使用者的基礎代謝(TDEE)為 ${tdeeVal} 大卡。昨天她攝取了 ${yesterdayEatenVal} 大卡。
+今天她許願想吃：${food}。請排入菜單並平衡整日熱量(1300-1450大卡)。若許願重口味食物，請搭配無油配菜。
 嚴格規則：
 請回傳合法的 JSON 格式（不要有 markdown 符號如 \`\`\`json），把許願的菜色排入其中，結構如下：
-[
-  {"meal": "早餐", "name": "無糖優格、香蕉", "calories": 220},
-  {"meal": "午餐", "name": "${food} (許願主餐)", "calories": 600},
-  {"meal": "午餐", "name": "清炒蔬菜、無油蒸蛋", "calories": 150},
-  {"meal": "晚餐", "name": "清淡豆腐湯、白飯半碗", "calories": 280}
-]`;
+{
+  "message": "依據許願料理與昨日熱量給予的一句溫馨短語，例如：三杯雞安排上囉！配上清爽的蔬菜剛剛好！",
+  "menu": [
+    {"meal": "早餐", "name": "無糖優格、香蕉", "calories": 220},
+    {"meal": "午餐", "name": "${food} (許願主餐)", "calories": 600},
+    {"meal": "午餐", "name": "清炒蔬菜、無油蒸蛋", "calories": 150}
+  ]
+}`;
     }
 
     loadingText.innerText = "精靈正在為您精算熱量與菜單...";
     loadingScreen.style.display = "flex";
 
-    const payload = { contents: [{ parts: [{ text: prompt }] }] };
-    const apiKey = "";
+    const payload = { contents: [{ parts: [{ text: promptText }] }] };
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
 
     try {
@@ -501,11 +519,20 @@ async function generateAIMenu(mode) {
             body: JSON.stringify(payload)
         });
         const result = await response.json();
+        
+        // 錯誤處理：如果 Google 回傳錯誤（例如 API Key 錯誤）
+        if(result.error) {
+             throw new Error(result.error.message);
+        }
+
         let text = result.candidates[0].content.parts[0].text;
         text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        const menuItems = JSON.parse(text);
+        const resultData = JSON.parse(text);
+        const menuItems = resultData.menu;
+        const aiMessage = resultData.message;
 
         let html = `<h3 style="margin-top:0; font-family:'DM Serif Display',serif; color:var(--text-main);">✨ 為您精算的專屬菜單</h3>`;
+        html += `<div style="background:#FDF9F3; border-left: 4px solid var(--accent); padding:10px; margin-bottom:15px; font-size:13px; color:var(--text-main); font-weight:500; border-radius:4px;">💬 ${aiMessage}</div>`;
         html += `<p style="font-size:12px; color:var(--text-light); margin-bottom:15px;">請勾選你實際有吃的品項，確認後一鍵加入今日帳本：</p>`;
         
         menuItems.forEach((item, index) => {
@@ -520,8 +547,8 @@ async function generateAIMenu(mode) {
         });
 
         html += `
-            <div id="low-calorie-warning" style="font-size:12px; color:#c0392b; margin:12px 0; display:none;">
-                ⚠️ 貼心提醒：勾選的總熱量偏低，建議適度補充水分或加顆水煮蛋保護代謝喔！
+            <div id="low-calorie-warning" style="font-size:12px; color:#c0392b; margin:12px 0; display:none; background:#FFF5F5; padding:8px; border-radius:6px; border:1px dashed #c0392b;">
+                <!-- 警告文字將動態注入 -->
             </div>
             <button onclick="importSelectedMeals()" style="margin-top:15px; background:var(--gold); color:#fff;">✅ 將勾選料理加入今日帳本</button>`;
 
@@ -536,7 +563,10 @@ async function generateAIMenu(mode) {
 
     } catch (e) {
         console.error(e);
-        alert("精靈連線異常，請再試一次。");
+        // ★★★ 錯誤處理：清除舊金鑰重新設定 ★★★
+        if (confirm("⚠️ 精靈連線異常！可能是 API 金鑰輸入錯誤或網路不穩。\\n是否要清除舊金鑰，重新設定一次？")) {
+            localStorage.removeItem('bowbow_gemini_key');
+        }
     } finally {
         loadingScreen.style.display = "none";
     }
@@ -550,7 +580,12 @@ function checkTotalSelectedCalories() {
     });
     const warningEl = document.getElementById('low-calorie-warning');
     if (warningEl) {
-        warningEl.style.display = (total > 0 && total < 1000) ? "block" : "none";
+        if (total > 0 && total < 1100) {
+            warningEl.innerHTML = "⚠️ 今天選的份量有點少喔！精靈建議可以再多喝一杯無糖豆漿，或加顆茶葉蛋，保護身體代謝喔！✨";
+            warningEl.style.display = "block";
+        } else {
+            warningEl.style.display = "none";
+        }
     }
 }
 
@@ -702,8 +737,15 @@ async function callApi(payload, showLoading = true) {
 async function loadRecords(showLoading = true) {
     const data = await callApi({ action: "getRecords" }, showLoading);
     let todayTotal = 0;
+    yesterdayEatenVal = 0; // 歸零重新計算
+
     const now = new Date();
     const todayStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`; 
+    
+    // 計算昨天的日期字串
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = `${yesterday.getFullYear()}/${String(yesterday.getMonth() + 1).padStart(2, '0')}/${String(yesterday.getDate()).padStart(2, '0')}`;
 
     const todayListEl = document.getElementById("recordList"); 
     const oldListEl = document.getElementById("oldRecordList"); 
@@ -718,9 +760,15 @@ async function loadRecords(showLoading = true) {
 
         data.forEach(item => {
             const isToday = item.date.startsWith(todayStr);
+            const isYesterday = item.date.startsWith(yesterdayStr);
+
             let displayTime = isToday ? item.date.substring(11, 16) : item.date.split(' ')[0];
+            
             if (isToday) todayTotal += Number(item.calories);
             else hasOldData = true;
+
+            // 如果是昨天的紀錄，就加總起來給 AI 參考
+            if (isYesterday) yesterdayEatenVal += Number(item.calories);
 
             const html = `
                 <div class="record-item">
