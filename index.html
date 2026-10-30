@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>日常飲食管家</title>
+<title>💕🧚🏻💖🧚🏻✨</title>
 <meta name="theme-color" content="#FDFBF7">
  
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
@@ -408,7 +408,8 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
             <input type="datetime-local" id="foodDateTime">
 
             <label>Food Name</label>
-            <input type="text" id="foodName" oninput="autoSearch()">
+            <input type="text" id="foodName" list="foodHistoryList" oninput="autoSearchFood()" placeholder="輸入關鍵字或選擇過往食物">
+            <datalist id="foodHistoryList"></datalist>
             
             <label>Calories</label>
             <input type="number" id="foodCal" placeholder="kcal">
@@ -915,10 +916,13 @@ async function loadRecords(showLoading = true) {
     yesterdayEatenVal = 0; 
     
     if (Array.isArray(data)) {
-        globalRecordsData = data; // 存入全域供日曆使用
+        globalRecordsData = data; // 存入全域供日曆與歷史選單使用
     } else {
         globalRecordsData = [];
     }
+
+    // 更新歷史食物下拉選單
+    updateFoodDatalist();
 
     const now = new Date();
     const todayStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`; 
@@ -945,6 +949,40 @@ async function loadRecords(showLoading = true) {
 
     const stats = await callApi({ action: "calcSavings", tdee: els.tdee.value }, false); 
     if (stats && stats.totalSaved !== undefined) updateLongTermProgress(stats.totalSaved);
+}
+
+// --- 智慧歷史選單：根據歷史紀錄更新下拉選單選項 ---
+function updateFoodDatalist() {
+    const datalist = document.getElementById('foodHistoryList');
+    if (!datalist) return;
+    datalist.innerHTML = '';
+    
+    const foodMap = new Map();
+    globalRecordsData.forEach(item => {
+        const name = item.item ? item.item.trim() : '';
+        if (name && item.calories && !foodMap.has(name)) {
+            foodMap.set(name, item.calories);
+        }
+    });
+
+    foodMap.forEach((cal, name) => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.label = `${cal} kcal`;
+        datalist.appendChild(option);
+    });
+}
+
+// --- 智慧歷史選單：比對食物名稱並自動填入熱量 ---
+function autoSearchFood() {
+    const name = els.foodName.value.trim();
+    if (!name) return;
+    
+    // 優先比對歷史紀錄中相同名稱的最新熱量
+    const match = globalRecordsData.find(item => item.item && item.item.trim() === name);
+    if (match) {
+        els.foodCal.value = match.calories;
+    }
 }
 
 function updateDailyAndSave(shouldReload = true) {
@@ -1006,17 +1044,6 @@ async function addRecord() {
     els.foodName.value = ""; els.foodCal.value = "";
     resetDateTimeField(); // 新增完恢復成現在時間
     await loadRecords(false);
-}
-
-async function autoSearch() {
-    const name = els.foodName.value.trim();
-    if (!name || els.foodCal.value) return;
-    try {
-        const res = await callApi({ action: "searchFood", item: name }, false);
-        if (res?.matches && res.matches.length === 1) {
-            els.foodCal.value = res.matches[0].calories;
-        }
-    } catch (e) {}
 }
 
 async function deleteRecord(id) {
