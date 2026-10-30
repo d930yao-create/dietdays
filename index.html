@@ -457,10 +457,19 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
             <div style="display: flex; gap: 10px;">
                 <button onclick="generateAIMenu('random')" style="background: var(--text-main);">🎲 隨機安排今日菜單</button>
             </div>
+            
             <div style="border-top: 1px dashed #E0D6CC; padding-top: 12px; margin-top: 5px;">
                 <label>或者許願想吃的一道菜：</label>
                 <input type="text" id="ai-food-input" placeholder="例如：三杯雞、炸豬排..." style="padding:12px; font-size:14px; margin-bottom: 10px;">
-                <button id="ai-btn" onclick="generateAIMenu('wish')">✨ 許願搭配</button>
+                <button onclick="generateAIMenu('wish')">✨ 許願搭配</button>
+            </div>
+            
+            <!-- 新增：清冰箱食材庫 -->
+            <div style="background: #FDF9F3; border: 1px solid #EFE4D6; border-radius: 12px; padding: 15px; margin-top: 8px;">
+                <label style="color:var(--text-main); font-size: 13px; font-weight: bold;">🥦 清冰箱食材庫</label>
+                <p style="font-size: 11px; color: var(--text-light); margin: 4px 0 10px 0; font-weight: normal; letter-spacing: 0.5px; text-transform: none;">輸入手邊有的食材（空格隔開），精靈幫你變出一餐</p>
+                <input type="text" id="ai-fridge-input" placeholder="例如：小白菜 玉米筍 雞蛋 豬肉片" style="background: #fff; border: 1px solid #E0D6CC; padding: 12px; font-size: 14px; margin-bottom: 10px;">
+                <button onclick="generateAIMenu('fridge')" style="background: #8FA998; color: #fff;">🍳 魔法組合料理</button>
             </div>
         </div>
 
@@ -608,6 +617,7 @@ async function generateAIMenu(mode) {
     const loadingScreen = document.getElementById('loading');
     const loadingText = document.getElementById('loading-text');
     const wishInput = document.getElementById('ai-food-input');
+    const fridgeInput = document.getElementById('ai-fridge-input');
 
     // ★★★ 安全的金鑰讀取機制 ★★★
     let apiKey = localStorage.getItem('bowbow_gemini_key');
@@ -649,7 +659,7 @@ async function generateAIMenu(mode) {
     {"meal": "晚餐", "name": "板豆腐半盒、蝦仁湯", "calories": 300}
   ]
 }`;
-    } else {
+    } else if (mode === 'wish') {
         const food = wishInput.value.trim();
         if (!food) return alert("請輸入想吃的料理喔！");
         promptText = `使用者的基礎代謝(TDEE)為 ${tdeeVal} 大卡。昨天她攝取了 ${yesterdayEatenVal} 大卡。
@@ -662,6 +672,22 @@ async function generateAIMenu(mode) {
   "menu": [
     {"meal": "午餐", "name": "清炒蔬菜、無油蒸蛋", "calories": 150},
     {"meal": "晚餐", "name": "${food} (許願主餐)", "calories": 600}
+  ]
+}`;
+    } else if (mode === 'fridge') {
+        const ingredients = fridgeInput.value.trim();
+        if (!ingredients) return alert("請輸入手邊有的食材喔！");
+        promptText = `使用者的基礎代謝(TDEE)為 ${tdeeVal} 大卡。昨天她攝取了 ${yesterdayEatenVal} 大卡。
+今天她已經紀錄吃了：${todaysFoodText}，共 ${todayTotalCal} 大卡。今天剩下約 ${remainCal} 大卡的額度。
+現在她手邊有以下食材想清冰箱：${ingredients}。
+請優先使用這些食材，幫她設計 1~2 道簡單的家常菜，並排入剩下的餐點中，同時利用剩下的熱量額度幫她平衡熱量。若食材只有肉類或蔬菜，請自行幫她搭配簡單的主食或配菜。
+嚴格規則：
+請回傳合法的 JSON 格式（不要有 markdown 符號如 \`\`\`json），把魔法料理排入其中，結構如下：
+{
+  "message": "一句溫馨短語，例如：幫你用小白菜和豬肉片做了美味的蔬菜炒肉，配上一碗白飯剛剛好！",
+  "menu": [
+    {"meal": "晚餐", "name": "鮮蔬炒豬肉片 (含小白菜、玉米筍)", "calories": 400},
+    {"meal": "晚餐", "name": "白飯半碗", "calories": 140}
   ]
 }`;
     }
